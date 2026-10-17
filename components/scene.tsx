@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { people, locations, type Person, type Step } from '@/lib/story';
 // Crop the shared atlas at render time. Silhouette clips keep scenery visible around each sprite.
 const atlas = {
@@ -8,9 +9,10 @@ const atlas = {
 };
 export function Character({person,small=false}:{person:Person;small?:boolean}) {
  const sprite=atlas[person];
+ const clipId=useId();
  return <svg viewBox={`${sprite.x} 0 ${sprite.width} 887`} className={`character ${small?'small-character':''}`} role="img" aria-label={people[person].ja}>
- <defs><clipPath id={`silhouette-${person}-${small?'small':'large'}`}><polygon points={sprite.shape}/></clipPath></defs>
- <image href="/art/companions.webp" width="1774" height="887" clipPath={`url(#silhouette-${person}-${small?'small':'large'})`}/>
+ <defs><clipPath id={clipId}><polygon points={sprite.shape}/></clipPath></defs>
+ <image href="/art/companions.webp" width="1774" height="887" clipPath={`url(#${clipId})`}/>
  </svg>;
 }
 export function Item({kind,className=''}:{kind:string;className?:string}) {

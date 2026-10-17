@@ -22,3 +22,14 @@
 .scene-chamber .pedestal{opacity:0}
 .scene-chamber .distant-party{left:39%;bottom:14%}
 .scene-chamber .floor-tracks{left:30%;bottom:6%}
+
+.scene-kitchen .scene-painting,.scene-storeroom .scene-painting,.scene-hall .scene-painting{background-image:url(/art/locations.webp);background-size:auto 300%}
+.scene-kitchen .scene-painting{background-position:center top}
+.scene-storeroom .scene-painting{background-position:center center}
+.scene-hall .scene-painting{background-position:center bottom}
+.scene .architecture{opacity:0}
+.scene-kitchen .kitchen-table{opacity:0}
+.result-narration{font-size:13px;line-height:2.1;margin:12px 0;color:#e1e2cd}
+.action-result{border-color:#839d6255;background:linear-gradient(135deg,#2a3827,#1a2b24)}
+.action-result .next-button{margin-top:16px}
+.scene{scroll-margin-top:20px}.chapter-bar{scroll-margin-top:20px}
