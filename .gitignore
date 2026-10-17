@@ -42,3 +42,6 @@ next-env.d.ts
 
 # local development scratch
 /work/
+
+/test-results/
+/playwright-report/

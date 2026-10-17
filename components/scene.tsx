@@ -1,48 +1,496 @@
-import { useId } from 'react';
-import { people, locations, type Person, type Step } from '@/lib/story';
+import { useId } from "react";
+import { people, locations, type Person, type Step } from "@/lib/story";
 // Crop the shared atlas at render time. Silhouette clips keep scenery visible around each sprite.
 const atlas = {
- thomas: { x: 20, width: 400, shape: '207,24 260,18 292,26 315,45 328,72 326,100 316,111 320,137 313,163 308,175 341,187 357,206 375,266 381,310 383,340 375,373 378,410 386,457 384,493 366,504 357,487 350,461 337,487 329,518 326,570 321,636 324,660 319,702 332,762 333,793 368,806 385,822 385,834 352,842 299,842 278,831 275,800 266,743 252,704 242,705 227,767 231,796 217,835 198,849 145,855 73,852 67,842 78,818 97,804 111,768 123,708 125,676 138,646 146,585 150,546 162,506 153,481 152,452 143,426 124,416 104,388 77,378 59,352 41,337 35,312 42,285 56,253 81,228 108,211 144,190 179,174 207,170 213,157 202,140 199,121 190,106 191,84 197,61' },
- elena: { x: 428, width: 400, shape: '586,52 611,28 638,27 660,36 674,53 690,49 718,55 738,70 751,89 754,119 746,140 736,164 741,186 754,199 763,218 763,248 774,272 779,302 774,327 779,360 787,397 799,455 803,526 800,588 797,626 808,651 787,665 771,664 766,719 760,764 770,793 784,812 790,826 783,839 745,841 715,838 694,826 690,796 683,759 677,704 667,677 655,653 651,605 636,584 618,576 611,609 606,651 589,690 573,734 561,776 560,809 542,833 526,844 510,843 508,830 517,806 520,764 521,718 523,679 512,674 480,681 440,670 446,634 457,586 472,531 487,470 494,423 500,394 492,377 490,353 481,343 485,318 492,292 495,260 510,233 527,213 548,198 563,188 556,171 552,152 555,128 563,104 567,77' },
- aldric: { x: 865, width: 400, shape: '1027,22 1050,12 1075,16 1097,31 1115,50 1119,73 1113,103 1119,121 1109,148 1108,164 1145,177 1164,195 1177,233 1186,281 1194,331 1205,377 1215,432 1215,487 1216,529 1214,575 1225,630 1231,676 1227,714 1214,725 1180,737 1163,754 1163,784 1187,804 1207,816 1207,832 1186,840 1154,842 1121,834 1102,825 1098,790 1086,759 1065,764 1053,792 1058,817 1046,836 1012,849 973,850 944,844 936,835 941,812 956,789 965,756 942,752 916,740 893,721 883,695 884,655 889,610 901,555 901,504 906,455 908,412 914,364 922,314 932,264 943,222 954,199 974,182 1007,169 1006,150 997,136 994,113 984,97 989,76 1000,60 1009,41' },
- cook: { x: 1266, width: 490, shape: '1430,43 1457,23 1494,23 1523,31 1542,42 1573,53 1595,72 1607,95 1603,116 1586,126 1578,140 1580,167 1574,190 1597,205 1619,224 1642,245 1654,271 1664,294 1668,322 1681,316 1683,271 1677,258 1680,224 1694,206 1705,211 1711,225 1707,249 1698,262 1696,298 1706,311 1712,337 1701,357 1680,368 1659,361 1658,402 1657,443 1644,465 1652,505 1664,551 1670,596 1668,627 1658,655 1641,666 1636,699 1638,748 1642,789 1675,811 1695,821 1693,836 1663,844 1615,845 1590,835 1587,805 1581,767 1572,717 1559,689 1543,681 1531,707 1526,747 1527,791 1513,823 1495,840 1462,848 1409,850 1390,843 1384,830 1396,813 1412,804 1421,770 1425,724 1427,693 1429,666 1410,654 1391,635 1387,609 1388,577 1387,536 1377,494 1366,468 1343,463 1320,448 1301,431 1291,402 1286,374 1294,343 1309,316 1322,291 1340,267 1362,246 1383,229 1412,209 1441,195 1444,181 1431,163 1430,143 1437,122 1433,112 1420,100 1414,80 1418,57' },
+  thomas: {
+    x: 20,
+    width: 400,
+    shape:
+      "207,24 260,18 292,26 315,45 328,72 326,100 316,111 320,137 313,163 308,175 341,187 357,206 375,266 381,310 383,340 375,373 378,410 386,457 384,493 366,504 357,487 350,461 337,487 329,518 326,570 321,636 324,660 319,702 332,762 333,793 368,806 385,822 385,834 352,842 299,842 278,831 275,800 266,743 252,704 242,705 227,767 231,796 217,835 198,849 145,855 73,852 67,842 78,818 97,804 111,768 123,708 125,676 138,646 146,585 150,546 162,506 153,481 152,452 143,426 124,416 104,388 77,378 59,352 41,337 35,312 42,285 56,253 81,228 108,211 144,190 179,174 207,170 213,157 202,140 199,121 190,106 191,84 197,61",
+  },
+  elena: {
+    x: 428,
+    width: 400,
+    shape:
+      "586,52 611,28 638,27 660,36 674,53 690,49 718,55 738,70 751,89 754,119 746,140 736,164 741,186 754,199 763,218 763,248 774,272 779,302 774,327 779,360 787,397 799,455 803,526 800,588 797,626 808,651 787,665 771,664 766,719 760,764 770,793 784,812 790,826 783,839 745,841 715,838 694,826 690,796 683,759 677,704 667,677 655,653 651,605 636,584 618,576 611,609 606,651 589,690 573,734 561,776 560,809 542,833 526,844 510,843 508,830 517,806 520,764 521,718 523,679 512,674 480,681 440,670 446,634 457,586 472,531 487,470 494,423 500,394 492,377 490,353 481,343 485,318 492,292 495,260 510,233 527,213 548,198 563,188 556,171 552,152 555,128 563,104 567,77",
+  },
+  aldric: {
+    x: 865,
+    width: 400,
+    shape:
+      "1027,22 1050,12 1075,16 1097,31 1115,50 1119,73 1113,103 1119,121 1109,148 1108,164 1145,177 1164,195 1177,233 1186,281 1194,331 1205,377 1215,432 1215,487 1216,529 1214,575 1225,630 1231,676 1227,714 1214,725 1180,737 1163,754 1163,784 1187,804 1207,816 1207,832 1186,840 1154,842 1121,834 1102,825 1098,790 1086,759 1065,764 1053,792 1058,817 1046,836 1012,849 973,850 944,844 936,835 941,812 956,789 965,756 942,752 916,740 893,721 883,695 884,655 889,610 901,555 901,504 906,455 908,412 914,364 922,314 932,264 943,222 954,199 974,182 1007,169 1006,150 997,136 994,113 984,97 989,76 1000,60 1009,41",
+  },
+  cook: {
+    x: 1266,
+    width: 490,
+    shape:
+      "1430,43 1457,23 1494,23 1523,31 1542,42 1573,53 1595,72 1607,95 1603,116 1586,126 1578,140 1580,167 1574,190 1597,205 1619,224 1642,245 1654,271 1664,294 1668,322 1681,316 1683,271 1677,258 1680,224 1694,206 1705,211 1711,225 1707,249 1698,262 1696,298 1706,311 1712,337 1701,357 1680,368 1659,361 1658,402 1657,443 1644,465 1652,505 1664,551 1670,596 1668,627 1658,655 1641,666 1636,699 1638,748 1642,789 1675,811 1695,821 1693,836 1663,844 1615,845 1590,835 1587,805 1581,767 1572,717 1559,689 1543,681 1531,707 1526,747 1527,791 1513,823 1495,840 1462,848 1409,850 1390,843 1384,830 1396,813 1412,804 1421,770 1425,724 1427,693 1429,666 1410,654 1391,635 1387,609 1388,577 1387,536 1377,494 1366,468 1343,463 1320,448 1301,431 1291,402 1286,374 1294,343 1309,316 1322,291 1340,267 1362,246 1383,229 1412,209 1441,195 1444,181 1431,163 1430,143 1437,122 1433,112 1420,100 1414,80 1418,57",
+  },
 };
-export function Character({person,small=false}:{person:Person;small?:boolean}) {
- const sprite=atlas[person];
- const clipId=useId();
- return <svg viewBox={`${sprite.x} 0 ${sprite.width} 887`} className={`character ${small?'small-character':''}`} role="img" aria-label={people[person].ja}>
- <defs><clipPath id={clipId}><polygon points={sprite.shape}/></clipPath></defs>
- <image href="/art/companions.webp" width="1774" height="887" clipPath={`url(#${clipId})`}/>
- </svg>;
+export function Character({
+  person,
+  small = false,
+}: {
+  person: Person;
+  small?: boolean;
+}) {
+  const sprite = atlas[person];
+  const clipId = useId();
+  return (
+    <svg
+      viewBox={`${sprite.x} 0 ${sprite.width} 887`}
+      className={`character ${small ? "small-character" : ""}`}
+      role="img"
+      aria-label={people[person].ja}
+    >
+      <defs>
+        <clipPath id={clipId}>
+          <polygon points={sprite.shape} />
+        </clipPath>
+      </defs>
+      <image
+        href="/art/companions.webp"
+        width="1774"
+        height="887"
+        clipPath={`url(#${clipId})`}
+      />
+    </svg>
+  );
 }
-export function Item({kind,className=''}:{kind:string;className?:string}) {
- return <svg viewBox="0 0 120 100" className={`item ${className}`} role="img" aria-label={({crown:'王冠',crate:'木箱',dragon:'小さな赤いドラゴン',basket:'籠',cakes:'蜂蜜菓子',brooch:'金のブローチ',scroll:'記録',tracks:'足跡',key:'鍵',cart:'荷車',door:'扉',window:'窓'} as Record<string,string>)[kind]||kind}>
- {kind==='crate'?<><path d="M10 20 87 12l24 14-77 11Z" fill="#a27548"/><path d="M10 20 34 37v56L10 75Z" fill="#634930"/><path d="m34 37 77-11v56l-77 11Z" fill="#89603a" stroke="#c0965d" strokeWidth="3"/><path d="m39 43 67 32m-64 12 63-52" stroke="#b48a55" strokeWidth="8"/><path d="m16 29 12 13v39L16 69Z" fill="#ac8150"/></>:kind==='dragon'?<><path d="M44 65Q-2 84 12 39l21 18M73 46q44-45 36 18L84 57" fill="#a53e40" stroke="#e88064" strokeWidth="3"/><path d="M49 55Q28 76 41 87q25 14 49-10L83 43Z" fill="#c4564c"/><path d="m56 64-2 21 22-7-2-22Z" fill="#ecc28c"/><ellipse cx="64" cy="35" rx="29" ry="24" fill="#dc7660"/><path d="m44 18 0-15 14 13m19 0L92 5 88 25" fill="#ecd7ae"/><circle cx="55" cy="32" r="5" fill="#253a36"/><circle cx="77" cy="31" r="5" fill="#253a36"/><circle cx="54" cy="30" r="1.5" fill="white"/><path d="m57 46 12 2" stroke="#813e37" strokeWidth="3" strokeLinecap="round"/><path d="m42 56-14 3m58-5 12 4" stroke="#c4564c" strokeWidth="12" strokeLinecap="round"/></>:kind==='crown'?<><path d="m16 32 20 20 21-33 22 32 24-19-11 48H27Z" fill="#d9b45e" stroke="#ffe2a0" strokeWidth="3"/><path d="M28 70h64v15H28Z" fill="#a77c37"/><path d="m59 48 9 13-9 12-9-12Z" fill="#507c75"/><circle cx="17" cy="31" r="5" fill="#ffdc8b"/><circle cx="58" cy="19" r="5" fill="#ffdc8b"/><circle cx="102" cy="30" r="5" fill="#ffdc8b"/></>:kind==='tracks'?<><path d="m36 24 7 17 10-21 4 27-12 14-17-14Z" fill="#433f30"/><path d="m74 48 7 17 10-21 4 27-12 14-17-14Z" fill="#433f30"/></>:kind==='scroll'?<><path d="M27 14h65l-7 73H20Z" fill="#e6d1a4"/><path d="M24 15Q8 30 35 30m48 56q24-16-2-16" fill="#bfa26f" stroke="#755f43" strokeWidth="3"/><path d="M42 40h30M39 50h30M36 60h25" stroke="#927a53" strokeWidth="3"/></>:kind==='basket'?<><path d="M28 45Q25-7 61 8q29 0 29 37" fill="none" stroke="#ad844b" strokeWidth="7"/><path d="m14 43 13 47h64l14-47Z" fill="#a27a44" stroke="#d5b574" strokeWidth="4"/><path d="M22 56h75M25 69h69M29 80h61M38 45v43m15-43v43m15-43v43m15-43v43" stroke="#d5b574" strokeWidth="3"/></>:kind==='cakes'?<><ellipse cx="58" cy="82" rx="49" ry="10" fill="#b9c4b6"/><path d="M19 69q15-29 32 0v11H19m40-17q15-29 32 0v15H59M41 41q15-25 32 0v14H41" fill="#cf9547" stroke="#e5b667" strokeWidth="3"/></>:kind==='brooch'?<><circle cx="60" cy="48" r="30" fill="#dbb159" stroke="#ffe1a1" strokeWidth="5"/><path d="m60 24 16 24-16 25-16-25Z" fill="#62978c"/></>:kind==='key'?<><circle cx="37" cy="33" r="16" stroke="#d8b96c" strokeWidth="8" fill="none"/><path d="m47 45 41 40m-13-15 9-9m-21-4 9-9" stroke="#d8b96c" strokeWidth="8"/></>:kind==='cart'?<><path d="m16 27 78 0-9 39H25Z" fill="#947047" stroke="#b89560" strokeWidth="5"/><circle cx="34" cy="80" r="12" fill="#433d31" stroke="#b49a6c" strokeWidth="4"/><circle cx="82" cy="80" r="12" fill="#433d31" stroke="#b49a6c" strokeWidth="4"/><path d="M93 40h22" stroke="#b49a6c" strokeWidth="6"/></>:kind==='door'?<><path d="M25 95V38Q25 1 60 1q35 0 35 37v58Z" fill="#624a32" stroke="#a4875b" strokeWidth="5"/><path d="M60 8v86M34 48h52m-52 29h52" stroke="#392f24" strokeWidth="4"/><circle cx="70" cy="60" r="4" fill="#d3ba77"/></>:<><path d="M26 98V35Q26 2 60 2t34 33v63Z" fill="#93b4ae" stroke="#c9b98f" strokeWidth="7"/><path d="M60 6v90M30 47h60" stroke="#c9b98f" strokeWidth="4"/></>}
- </svg>;
+export function Item({
+  kind,
+  className = "",
+}: {
+  kind: string;
+  className?: string;
+}) {
+  return (
+    <svg
+      viewBox="0 0 120 100"
+      className={`item ${className}`}
+      role="img"
+      aria-label={
+        (
+          {
+            crown: "王冠",
+            crate: "木箱",
+            dragon: "小さな赤いドラゴン",
+            basket: "籠",
+            cakes: "蜂蜜菓子",
+            brooch: "金のブローチ",
+            scroll: "記録",
+            tracks: "足跡",
+            key: "鍵",
+            cart: "荷車",
+            door: "扉",
+            window: "窓",
+          } as Record<string, string>
+        )[kind] || kind
+      }
+    >
+      {kind === "crate" ? (
+        <>
+          <path d="M10 20 87 12l24 14-77 11Z" fill="#a27548" />
+          <path d="M10 20 34 37v56L10 75Z" fill="#634930" />
+          <path
+            d="m34 37 77-11v56l-77 11Z"
+            fill="#89603a"
+            stroke="#c0965d"
+            strokeWidth="3"
+          />
+          <path
+            d="m39 43 67 32m-64 12 63-52"
+            stroke="#b48a55"
+            strokeWidth="8"
+          />
+          <path d="m16 29 12 13v39L16 69Z" fill="#ac8150" />
+        </>
+      ) : kind === "dragon" ? (
+        <>
+          <path
+            d="M44 65Q-2 84 12 39l21 18M73 46q44-45 36 18L84 57"
+            fill="#a53e40"
+            stroke="#e88064"
+            strokeWidth="3"
+          />
+          <path d="M49 55Q28 76 41 87q25 14 49-10L83 43Z" fill="#c4564c" />
+          <path d="m56 64-2 21 22-7-2-22Z" fill="#ecc28c" />
+          <ellipse cx="64" cy="35" rx="29" ry="24" fill="#dc7660" />
+          <path d="m44 18 0-15 14 13m19 0L92 5 88 25" fill="#ecd7ae" />
+          <circle cx="55" cy="32" r="5" fill="#253a36" />
+          <circle cx="77" cy="31" r="5" fill="#253a36" />
+          <circle cx="54" cy="30" r="1.5" fill="white" />
+          <path
+            d="m57 46 12 2"
+            stroke="#813e37"
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+          <path
+            d="m42 56-14 3m58-5 12 4"
+            stroke="#c4564c"
+            strokeWidth="12"
+            strokeLinecap="round"
+          />
+        </>
+      ) : kind === "crown" ? (
+        <>
+          <path
+            d="m16 32 20 20 21-33 22 32 24-19-11 48H27Z"
+            fill="#d9b45e"
+            stroke="#ffe2a0"
+            strokeWidth="3"
+          />
+          <path d="M28 70h64v15H28Z" fill="#a77c37" />
+          <path d="m59 48 9 13-9 12-9-12Z" fill="#507c75" />
+          <circle cx="17" cy="31" r="5" fill="#ffdc8b" />
+          <circle cx="58" cy="19" r="5" fill="#ffdc8b" />
+          <circle cx="102" cy="30" r="5" fill="#ffdc8b" />
+        </>
+      ) : kind === "tracks" ? (
+        <>
+          <path d="m36 24 7 17 10-21 4 27-12 14-17-14Z" fill="#433f30" />
+          <path d="m74 48 7 17 10-21 4 27-12 14-17-14Z" fill="#433f30" />
+        </>
+      ) : kind === "scroll" ? (
+        <>
+          <path d="M27 14h65l-7 73H20Z" fill="#e6d1a4" />
+          <path
+            d="M24 15Q8 30 35 30m48 56q24-16-2-16"
+            fill="#bfa26f"
+            stroke="#755f43"
+            strokeWidth="3"
+          />
+          <path
+            d="M42 40h30M39 50h30M36 60h25"
+            stroke="#927a53"
+            strokeWidth="3"
+          />
+        </>
+      ) : kind === "basket" ? (
+        <>
+          <path
+            d="M28 45Q25-7 61 8q29 0 29 37"
+            fill="none"
+            stroke="#ad844b"
+            strokeWidth="7"
+          />
+          <path
+            d="m14 43 13 47h64l14-47Z"
+            fill="#a27a44"
+            stroke="#d5b574"
+            strokeWidth="4"
+          />
+          <path
+            d="M22 56h75M25 69h69M29 80h61M38 45v43m15-43v43m15-43v43m15-43v43"
+            stroke="#d5b574"
+            strokeWidth="3"
+          />
+        </>
+      ) : kind === "cakes" ? (
+        <>
+          <ellipse cx="58" cy="82" rx="49" ry="10" fill="#b9c4b6" />
+          <path
+            d="M19 69q15-29 32 0v11H19m40-17q15-29 32 0v15H59M41 41q15-25 32 0v14H41"
+            fill="#cf9547"
+            stroke="#e5b667"
+            strokeWidth="3"
+          />
+        </>
+      ) : kind === "brooch" ? (
+        <>
+          <circle
+            cx="60"
+            cy="48"
+            r="30"
+            fill="#dbb159"
+            stroke="#ffe1a1"
+            strokeWidth="5"
+          />
+          <path d="m60 24 16 24-16 25-16-25Z" fill="#62978c" />
+        </>
+      ) : kind === "key" ? (
+        <>
+          <circle
+            cx="37"
+            cy="33"
+            r="16"
+            stroke="#d8b96c"
+            strokeWidth="8"
+            fill="none"
+          />
+          <path
+            d="m47 45 41 40m-13-15 9-9m-21-4 9-9"
+            stroke="#d8b96c"
+            strokeWidth="8"
+          />
+        </>
+      ) : kind === "cart" ? (
+        <>
+          <path
+            d="m16 27 78 0-9 39H25Z"
+            fill="#947047"
+            stroke="#b89560"
+            strokeWidth="5"
+          />
+          <circle
+            cx="34"
+            cy="80"
+            r="12"
+            fill="#433d31"
+            stroke="#b49a6c"
+            strokeWidth="4"
+          />
+          <circle
+            cx="82"
+            cy="80"
+            r="12"
+            fill="#433d31"
+            stroke="#b49a6c"
+            strokeWidth="4"
+          />
+          <path d="M93 40h22" stroke="#b49a6c" strokeWidth="6" />
+        </>
+      ) : kind === "door" ? (
+        <>
+          <path
+            d="M25 95V38Q25 1 60 1q35 0 35 37v58Z"
+            fill="#624a32"
+            stroke="#a4875b"
+            strokeWidth="5"
+          />
+          <path
+            d="M60 8v86M34 48h52m-52 29h52"
+            stroke="#392f24"
+            strokeWidth="4"
+          />
+          <circle cx="70" cy="60" r="4" fill="#d3ba77" />
+        </>
+      ) : (
+        <>
+          <path
+            d="M26 98V35Q26 2 60 2t34 33v63Z"
+            fill="#93b4ae"
+            stroke="#c9b98f"
+            strokeWidth="7"
+          />
+          <path d="M60 6v90M30 47h60" stroke="#c9b98f" strokeWidth="4" />
+        </>
+      )}
+    </svg>
+  );
 }
-export function Scene({step,acted,index}:{step:Step;acted:boolean;index:number}) {
- const {scene,person,action}=step;
- const showDragon=(index>=12 || (action==='dragon'&&acted)) && scene!=='chamber';
- return <div className={`scene scene-${scene} ${acted?'acted':''} action-${action}`} aria-label={`${locations[scene]}。${acted?step.result:step.context}`}>
- <div className="scene-painting"/>
- <svg className="architecture" viewBox="0 0 1000 550" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><linearGradient id="wall" x2="0" y2="1"><stop stopColor="#293d39"/><stop offset="1" stopColor="#52614d"/></linearGradient><linearGradient id="light"><stop stopColor="#f7d58d" stopOpacity=".4"/><stop offset="1" stopColor="#f7d58d" stopOpacity="0"/></linearGradient><pattern id="stones" width="140" height="65" patternUnits="userSpaceOnUse"><path d="M0 0h140v65H0Z" fill="none" stroke="#c3c7a1" strokeOpacity=".09"/><path d="M70 0v30" stroke="#c3c7a1" strokeOpacity=".07"/></pattern></defs><rect width="1000" height="550" fill="url(#wall)"/><rect width="1000" height="430" fill="url(#stones)"/><path d="M0 430h1000v120H0Z" fill="#686756"/><path d="M0 550 500 400l500 150M0 485h1000M130 550l250-130m490 130L620 420" stroke="#a39a76" strokeOpacity=".22" fill="none"/>
- {[130,450,770].map(x=><g key={x}><path d={`M${x} 420V160q0-120 85-120t85 120v260`} fill="#1f302d" stroke="#a19b76" strokeWidth="10"/><path d={`M${x+25} 280V155q0-90 60-90t60 90v125Z`} fill={scene==='storeroom'?'#413c2e':'#a7b6a2'} stroke="#b5ad82" strokeWidth="6"/><path d={`M${x+85} 65v215m-60-110h120`} stroke="#726f50" strokeWidth="6"/>{scene!=='storeroom'&&<path d={`m${x+25} 280 120 0 170 200-360 0Z`} fill="url(#light)"/>}</g>)}
- <path d="M0 12h1000M0 31h1000" stroke="#8b8c6b" strokeWidth="7"/>{[45,365,685,980].map(x=><g key={x}><path d={`M${x} 0v425`} stroke="#626e57" strokeWidth="26"/><path d={`M${x-20} 410h40v18h-40Z`} fill="#a59a74"/></g>)}
- {scene==='hall'&&<g stroke="#c6a264" fill="none" strokeWidth="5"><path d="M550 0v97m-95 0q95 100 190 0M455 97h190"/><path d="M467 93V73m42 57v-25m42 38v-25m42 12v-25m42-12V73" stroke="#ffe0a0" strokeWidth="9"/></g>}
- </svg>
- <span className="location-tag"><span className="live-dot"/> {locations[scene]}</span>
- <div className="distant-party"><span className={acted?'actor-moving':''}><Character person={person} small/></span><Character person={person==='elena'?'thomas':'elena'} small/></div>
- <div className="scene-props" aria-hidden="true">
- {scene==='chamber'&&<><div className="pedestal"><Item kind={acted&&action==='log'?'scroll':'crown'}/></div>{(index>0||acted)&&<Item kind="tracks" className="floor-tracks"/>}</>}
- {scene==='kitchen'&&<><div className="kitchen-table"/><Item kind="cart" className={`cart-prop ${acted?'highlight':''}`}/><Item kind="cakes" className="kitchen-cakes"/>{acted&&action==='julian'&&<div className="julian-sprite"><Character person="thomas" small/><span>Julian</span></div>}</>}
- {scene==='storeroom'&&<><Item kind="crate" className="crate-back"/><Item kind="crate" className={`crate-front ${acted&&action==='boxes'?'moved':''}`}/><Item kind="crate" className={`crate-sealed ${acted&&['noise','dragon'].includes(action)?'rattling':''}`}/>{acted&&action==='unlock'&&<Item kind="key" className="reveal-item"/>}</>}
- {scene==='hall'&&<><Item kind="door" className={`hall-door ${acted&&action==='doors'?'closing':''}`}/><Item kind="window" className={`hall-window ${acted&&action==='windows'?'closing':''}`}/>{index>=15&&<Item kind="brooch" className={`brooch-prop ${acted&&action==='brooch'?'reveal-item':''}`}/>} {(index>=17||acted&&action==='cakes')&&<Item kind="cakes" className="cakes-prop"/>}{index>=17&&<Item kind="basket" className="basket-prop"/>}</>}
- {acted&&['log','list','guard'].includes(action)&&<Item kind="scroll" className="reveal-item"/>}
- {showDragon&&<div className={`dragon-prop ${acted&&action==='basket'?'caught':''}`}><Item kind="dragon"/><Item kind="crown" className="dragon-crown"/></div>}
- {acted&&['tracks','witness','cart','follow','delay'].includes(action)&&<span className="discovery-spark">✧</span>}
- </div>
- <div className="scene-vignette"/>
- <div className={`portrait portrait-${person}`}><Character person={person}/></div>
- <div className="scene-caption"><span>{acted?'ACTION COMPLETE':'STORY SCENE'}</span><p>{acted?({tracks:'小さな足跡を発見',boxes:'木箱の奥から、怪しい音が…',dragon:'王冠を抱えたドラゴン！',basket:'王冠、奪還！'} as Record<string,string>)[action]||'あなたのことばで、物語が動いた。':'王冠を探す、小さな冒険。'}</p></div>
- </div>;
+export function Scene({
+  step,
+  acted,
+  index,
+}: {
+  step: Step;
+  acted: boolean;
+  index: number;
+}) {
+  const { scene, person, action } = step;
+  const showDragon =
+    (index >= 12 || (action === "dragon" && acted)) && scene !== "chamber";
+  return (
+    <div
+      className={`scene scene-${scene} ${acted ? "acted" : ""} action-${action}`}
+      aria-label={`${locations[scene]}。${acted ? step.result : step.context}`}
+    >
+      <div className="scene-painting" />
+      <svg
+        className="architecture"
+        viewBox="0 0 1000 550"
+        preserveAspectRatio="xMidYMid slice"
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient id="wall" x2="0" y2="1">
+            <stop stopColor="#293d39" />
+            <stop offset="1" stopColor="#52614d" />
+          </linearGradient>
+          <linearGradient id="light">
+            <stop stopColor="#f7d58d" stopOpacity=".4" />
+            <stop offset="1" stopColor="#f7d58d" stopOpacity="0" />
+          </linearGradient>
+          <pattern
+            id="stones"
+            width="140"
+            height="65"
+            patternUnits="userSpaceOnUse"
+          >
+            <path
+              d="M0 0h140v65H0Z"
+              fill="none"
+              stroke="#c3c7a1"
+              strokeOpacity=".09"
+            />
+            <path d="M70 0v30" stroke="#c3c7a1" strokeOpacity=".07" />
+          </pattern>
+        </defs>
+        <rect width="1000" height="550" fill="url(#wall)" />
+        <rect width="1000" height="430" fill="url(#stones)" />
+        <path d="M0 430h1000v120H0Z" fill="#686756" />
+        <path
+          d="M0 550 500 400l500 150M0 485h1000M130 550l250-130m490 130L620 420"
+          stroke="#a39a76"
+          strokeOpacity=".22"
+          fill="none"
+        />
+        {[130, 450, 770].map((x) => (
+          <g key={x}>
+            <path
+              d={`M${x} 420V160q0-120 85-120t85 120v260`}
+              fill="#1f302d"
+              stroke="#a19b76"
+              strokeWidth="10"
+            />
+            <path
+              d={`M${x + 25} 280V155q0-90 60-90t60 90v125Z`}
+              fill={scene === "storeroom" ? "#413c2e" : "#a7b6a2"}
+              stroke="#b5ad82"
+              strokeWidth="6"
+            />
+            <path
+              d={`M${x + 85} 65v215m-60-110h120`}
+              stroke="#726f50"
+              strokeWidth="6"
+            />
+            {scene !== "storeroom" && (
+              <path
+                d={`m${x + 25} 280 120 0 170 200-360 0Z`}
+                fill="url(#light)"
+              />
+            )}
+          </g>
+        ))}
+        <path d="M0 12h1000M0 31h1000" stroke="#8b8c6b" strokeWidth="7" />
+        {[45, 365, 685, 980].map((x) => (
+          <g key={x}>
+            <path d={`M${x} 0v425`} stroke="#626e57" strokeWidth="26" />
+            <path d={`M${x - 20} 410h40v18h-40Z`} fill="#a59a74" />
+          </g>
+        ))}
+        {scene === "hall" && (
+          <g stroke="#c6a264" fill="none" strokeWidth="5">
+            <path d="M550 0v97m-95 0q95 100 190 0M455 97h190" />
+            <path
+              d="M467 93V73m42 57v-25m42 38v-25m42 12v-25m42-12V73"
+              stroke="#ffe0a0"
+              strokeWidth="9"
+            />
+          </g>
+        )}
+      </svg>
+      <span className="location-tag">
+        <span className="live-dot" /> {locations[scene]}
+      </span>
+      <div className="distant-party">
+        <span className={acted ? "actor-moving" : ""}>
+          <Character person={person} small />
+        </span>
+        <Character person={person === "elena" ? "thomas" : "elena"} small />
+      </div>
+      <div className="scene-props" aria-hidden="true">
+        {scene === "chamber" && (
+          <>
+            <div className="pedestal">
+              <Item kind={acted && action === "log" ? "scroll" : "crown"} />
+            </div>
+            {(index > 0 || acted) && (
+              <Item kind="tracks" className="floor-tracks" />
+            )}
+          </>
+        )}
+        {scene === "kitchen" && (
+          <>
+            <div className="kitchen-table" />
+            <Item
+              kind="cart"
+              className={`cart-prop ${acted ? "highlight" : ""}`}
+            />
+            <Item kind="cakes" className="kitchen-cakes" />
+            {acted && action === "julian" && (
+              <div className="julian-sprite">
+                <Character person="thomas" small />
+                <span>Julian</span>
+              </div>
+            )}
+          </>
+        )}
+        {scene === "storeroom" && (
+          <>
+            <Item kind="crate" className="crate-back" />
+            <Item
+              kind="crate"
+              className={`crate-front ${index > 9 || (acted && action === "boxes") ? "moved" : ""}`}
+            />
+            <Item
+              kind="crate"
+              className={`crate-sealed ${acted && ["noise", "dragon"].includes(action) ? "rattling" : ""}`}
+            />
+            {acted && action === "unlock" && (
+              <Item kind="key" className="reveal-item" />
+            )}
+          </>
+        )}
+        {scene === "hall" && (
+          <>
+            <Item
+              kind="door"
+              className={`hall-door ${acted && action === "doors" ? "closing" : ""}`}
+            />
+            <Item
+              kind="window"
+              className={`hall-window ${acted && action === "windows" ? "closing" : ""}`}
+            />
+            {index >= 15 && (
+              <Item
+                kind="brooch"
+                className={`brooch-prop ${acted && action === "brooch" ? "reveal-item" : ""}`}
+              />
+            )}{" "}
+            {(index >= 17 || (acted && action === "cakes")) && (
+              <Item kind="cakes" className="cakes-prop" />
+            )}
+            {index >= 17 && <Item kind="basket" className="basket-prop" />}
+          </>
+        )}
+        {acted && ["log", "list", "guard"].includes(action) && (
+          <Item kind="scroll" className="reveal-item" />
+        )}
+        {showDragon && (
+          <div
+            className={`dragon-prop ${acted && action === "basket" ? "caught" : ""}`}
+          >
+            <Item kind="dragon" />
+            <Item kind="crown" className="dragon-crown" />
+          </div>
+        )}
+        {acted &&
+          ["tracks", "witness", "cart", "follow", "delay"].includes(action) && (
+            <span className="discovery-spark">✧</span>
+          )}
+      </div>
+      <div className="scene-vignette" />
+      <div className={`portrait portrait-${person}`}>
+        <Character person={person} />
+      </div>
+      <div className="scene-caption">
+        <span>{acted ? "ACTION COMPLETE" : "STORY SCENE"}</span>
+        <p>
+          {acted
+            ? (
+                {
+                  tracks: "小さな足跡を発見",
+                  boxes: "木箱の奥から、怪しい音が…",
+                  dragon: "王冠を抱えたドラゴン！",
+                  basket: "王冠、奪還！",
+                } as Record<string, string>
+              )[action] || "あなたのことばで、物語が動いた。"
+            : "王冠を探す、小さな冒険。"}
+        </p>
+      </div>
+    </div>
+  );
 }
