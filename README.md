@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 王冠と、ことばの騎士 — The Missing Crown
 
-## Getting Started
+英語の命令文と依頼文を使い分けながら、消えた王冠を取り戻すブラウザRPGです。
+`docs/reference/prompt.txt` のシナリオ1を、全5幕・18回の依頼として実装しています。
 
-First, run the development server:
+## 起動
 
-```bash
+Node.js 20.9以上を使用してください。
+
+```sh
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+http://localhost:3000 を開きます。本番用は `npm run build` → `npm start` です。
+Turbopackがローカルポートの制限に阻まれる環境では、`npm run build -- --webpack`、`npm run dev -- --webpack` を使えます。
+外部フォントや外部APIキーを用意する必要はありません。背景・人物はローカルのWebP画像です。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 遊び方
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. プレイヤーの性別を選択し、ルールと3回のチュートリアルを確認します。
+2. マイクボタンを押し、英語の空欄部分を話します。目的語を含む文全体でも回答できます。
+3. 声が出せない場合は「語句で組み立てる」に切り替えます。タップで選択・取り消し、ドラッグまたは左右ボタンで並べ替えられます。
+4. 正解すると仲間が行動し、場面の演出と調査結果が表示されます。手がかりは「冒険の手帳」に記録されます。
 
-## Learn More
+この物語の身分設定では、従者には動詞の原形、同僚には `Can you + 原形`、伯爵には `Would you mind + ing形` を使います。それぞれ6回ずつ練習します。実際の英会話では、親しさや状況に合わせて丁寧さを選びます。
 
-To learn more about Next.js, take a look at the following resources:
+身分に合わないが文法的には正しい依頼は、NPCが反応したあとに同じ問題を再試行します。文法・対象外の語句はNPCに進まず再試行します。`Would you mind open` は正解にしません。大文字・小文字、句読点、アポストロフィ、余分な空白は吸収します。
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 音声と保存
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- 入力は Web Speech Recognition API を使用し、音声入力を既定にしています。HTTPSまたはlocalhostとマイクの許可が必要です。認識エンジン・対応言語・ネットワーク接続はブラウザに依存します。Chrome等の対応ブラウザを推奨します。
+- 未対応、マイク拒否、ネットワークエラー、無音時は再試行または語句モードへ移れます。無音・認識失敗は不正解として数えません。
+- 読み上げにはブラウザの `speechSynthesis` を使用し、利用可能ならGoogleの音声を優先します。日本語・英語をそれぞれの言語で読み上げます。設定またはヘッダーから停止できます。
+- 性別、音声設定、チュートリアル受講、進行、手がかりを `localStorage` の `crown-quest-v1` に保存します。語句の組み立て途中は保存せず、再開時は現在の問題からです。記録はこのブラウザ内にあります。
+- 右側の残り時間は物語上の時間で、回答を急がせる実時間タイマーではありません。
 
-## Deploy on Vercel
+## 構成
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| 場所 | 内容 |
+| --- | --- |
+| `lib/story.ts` | 18場面、3回の練習、人物、幕、依頼、訳、結果、手がかり |
+| `lib/answer.ts` | 入力の正規化、文法・丁寧度の判定、語句候補 |
+| `lib/speech.ts` | 音声認識のブラウザ対応と読み上げ |
+| `components/game.tsx` | 進行、入力UI、設定、保存、手帳 |
+| `components/scene.tsx` | 共用人物アトラス、遠景スプライト、独立したアイテムと場面演出 |
+| `public/art/` | 組み込み画像生成機能で作成した背景と人物アトラス |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+参考画像1・2は入力と画面構成、画像3・4は生成前の画風確認に使用しました。画像5は参照していません。人物は同じアトラスを立ち絵・遠景・仲間一覧で共有し、描画時に切り出しています。背景とアイテムは別要素です。木箱の移動、扉と窓、ドラゴンの出現・捕獲などを正解後に演出します。動きを減らすOS設定にも対応します。
+
+## 検証
+
+```sh
+npm run lint
+npm test
+npm run test:e2e
+npm run build
+```
+
+`npm test` は18場面すべての正解・丁寧度の不一致・原形とingの区別・表記揺れ・空入力を検証します。
+
+PlaywrightのE2Eでは全18問の完走、誤答後の再試行、タップ・ドラッグ・左右ボタン、スマホでのチュートリアル、設定・保存・再開、音声認識失敗、非対応ブラウザでの代替入力を検証します。`/usr/bin/chromium` がなければ `npx playwright install chromium` でブラウザを用意してください。`CHROMIUM_PATH` でも指定できます。ポート3000の開発サーバーがあれば再利用します。
+
+音声テストはWeb Speech APIのイベントを模擬しています。実際のマイク認識精度、端末固有の音声、iOS/Android実機での操作は実機確認が必要です。
