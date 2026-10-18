@@ -25,6 +25,13 @@ export function evaluate(text: string, step: Step): Answer {
       : { kind: "choice", rank: "equal", messageEn: "Remember your station. Address a senior noble with greater respect.", messageJa: "身分をわきまえなさい。上級貴族には、さらに敬意をこめて頼むのだ。" };
   }
 
+  if (matches(`could you ${step.verb}`)) {
+    if (expected === "equal") return { kind: "correct", rank: "equal" };
+    return expected === "lower"
+      ? { kind: "choice", rank: "equal", messageEn: "Could you? That is unusually polite for an order to me. Please tell me directly.", messageJa: "『Could you...?』だなんて、私への命令にしては丁寧すぎて戸惑います。いつもどおり、はっきり指示してください。" }
+      : { kind: "choice", rank: "equal", messageEn: "Remember your station. Address a senior noble with greater respect.", messageJa: "身分をわきまえなさい。上級貴族には、さらに敬意をこめて頼むのだ。" };
+  }
+
   const forms: [Rank, string][] = [["lower", step.verb], ["equal", `can you ${step.verb}`], ["higher", `would you mind ${step.ing}`]];
   const found = forms.find(([, prefix]) => matches(prefix));
   if (!found) return { kind: "grammar", messageEn: "Check the verb form. Use the base verb after ‘Can you,’ and the -ing form after ‘Would you mind.’", messageJa: "動詞の形を確認しましょう。Can you の後は動詞の原形、Would you mind の後は ing形です。" };

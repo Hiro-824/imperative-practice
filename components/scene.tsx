@@ -107,7 +107,7 @@ export function Scene({
     const closed = index > 12 || (index === 12 && acted);
     background = closed ? "/art-new/throne-room-closed.webp" : "/art-new/throne-room-open.webp";
   }
-  const dragon = !tutorial && ((index === 11 && acted) || index >= 12);
+  const dragon = !tutorial && ((index === 11 && acted) || (index >= 12 && index <= 15));
   return (
     <Stage
       background={background}

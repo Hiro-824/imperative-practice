@@ -601,7 +601,7 @@ export default function Game() {
                   )}
                 </p>
                 {mode === "voice" ? (
-                  <div className="voice-input"><button className={listening ? "listening" : ""} onClick={listen} disabled={!voiceAvailable} aria-label={listening ? "録音を終了" : "マイクで話す"}>●</button><span>{listening ? "聞いています…" : "マイクで英語を話す"}</span></div>
+                  <div className="voice-input"><button className={listening ? "listening" : ""} onClick={listen} disabled={!voiceAvailable} aria-label={listening ? "録音を終了" : "マイクで話す"}>●</button><span>{listening ? "聞いています…" : "← タップして話す"}</span></div>
                 ) : (
                   <div className="word-input">
                     <div className="word-answer" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (dragId !== null) reorder(dragId, null); }}>
@@ -615,7 +615,7 @@ export default function Game() {
                 )}
                 {voiceMessage && <p className="system-message" role="status">{voiceMessage}</p>}
                 <div className="request-footer">
-                  <span>{person.rank === "lower" ? "↓ 目下" : person.rank === "equal" ? "＝ 同僚" : "↑ 目上"}</span>
+                  <span>{person.rank === "lower" ? "目下" : person.rank === "equal" ? "同僚" : "目上"}</span>
                   <button onClick={() => setShowHint((shown) => !shown)}>{showHint ? "ヒントを閉じる" : "ヒントを見る"}</button>
                 </div>
                 {showHint && <p className="hint">{person.rank === "lower" ? "動詞の原形から始めよう。" : person.rank === "equal" ? "Can you に動詞の原形を続けよう。" : "Would you mind に動詞のing形を続けよう。"}<strong>{correctPrefix(step)} {step.tail}</strong></p>}

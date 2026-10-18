@@ -208,19 +208,19 @@ export const steps: Step[] = [
 
 export const tutorial: Step[] = [
   {
-    ...steps[0], verb: "open", ing: "opening", tail: "the door", ja: "扉を開けて(open)。", action: "unlock", bubble: undefined,
+    ...steps[0], verb: "open", ing: "opening", tail: "the door", ja: "扉を開けて。💡目下の者なので、Open [the door]", action: "unlock", bubble: undefined,
     thoughtEn: "Thomas is my attendant. He is a little hasty, but dependable. I should ask him to open the door.",
     thoughtJa: "トーマスは私の従者。少し慌て者だが、頼りになる。まずは扉を開けてもらおう。",
     resultEn: "Yes! The door is open. Please give me any other orders you have.", resultJa: "はい、扉を開けました！ ほかにもご命令をどうぞ。",
   },
   {
-    ...steps[2], verb: "carry", ing: "carrying", tail: "this bag", ja: "この鞄を運んで(carry)くれる？", action: "cart", bubble: "bag",
+    ...steps[2], verb: "carry", ing: "carrying", tail: "this bag", ja: "この鞄を運んでくれる？　💡同じ身分なので、Can you carry [this bag?]", action: "cart", bubble: "bag",
     thoughtEn: "Elena is a fellow knight and a trusted friend. I should ask her to help carry this heavy bag.",
     thoughtJa: "エレナは同僚の騎士で、何度も任務を共にした友人だ。重い鞄を運ぶのを手伝ってもらおう。",
     resultEn: "Of course. I will carry half of it. Leave it to me.", resultJa: "もちろん。半分持つわ。任せて。",
   },
   {
-    ...steps[1], verb: "show", ing: "showing", tail: "me the garden", ja: "庭を案内して(show)いただけますか。", action: "log", bubble: undefined,
+    ...steps[1], verb: "show", ing: "showing", tail: "me the garden", ja: "庭を案内して(show)いただけますか。　💡高貴なお方なので、Would you mind showing [me the garden?]", action: "log", bubble: undefined,
     thoughtEn: "Count Aldric is the senior noble in charge of castle security. I should respectfully ask him to show me the garden.",
     thoughtJa: "アルドリック伯爵は城の警備を預かる上級貴族。敬意をこめて庭の案内をお願いしよう。",
     resultEn: "Very well. I shall show you the way. Follow me.", resultJa: "よろしい、案内しよう。こちらへ来たまえ。",
