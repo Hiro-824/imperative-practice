@@ -15,11 +15,13 @@ import {
   stopSpeaking,
   type Recognition,
 } from "@/lib/speech";
-import { Character, Item, Scene } from "./scene";
+import { Item, PlayerKnight, Scene } from "./scene";
 
 type Screen = "home" | "rules" | "tutorial" | "game" | "ending";
+type TurnPhase = "thought" | "npc" | "input" | "reaction";
 type Settings = {
   gender: "male" | "female";
+  inputMode: "voice" | "words";
   audio: boolean;
   tutorialDone: boolean;
 };
@@ -34,12 +36,56 @@ type Save = {
 const STORAGE = "crown-quest-v1";
 const defaults: Save = {
   version: 1,
-  settings: { gender: "female", audio: true, tutorialDone: false },
+  settings: {
+    gender: "female",
+    inputMode: "voice",
+    audio: true,
+    tutorialDone: false,
+  },
   index: 0,
   completed: false,
   mistakes: 0,
   clues: [],
 };
+function Typewriter({
+  text,
+  onDone,
+}: {
+  text: string;
+  onDone: () => void;
+}) {
+  const [length, setLength] = useState(0);
+  useEffect(() => {
+    let index = 0;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const timer = window.setInterval(
+      () => {
+        index = Math.min(text.length, index + 1);
+        setLength(index);
+        if (index === text.length) {
+          window.clearInterval(timer);
+          onDone();
+        }
+      },
+      reduced ? 1 : 16,
+    );
+    return () => window.clearInterval(timer);
+  }, [text, onDone]);
+  return (
+    <>
+      <p className="rpg-message" aria-hidden="true">
+        {text.slice(0, length)}
+        {length < text.length && <span className="type-cursor" />}
+      </p>
+      <p className="sr-only" aria-live="polite">
+        {length === text.length ? text : ""}
+      </p>
+    </>
+  );
+}
+function spoken(text: string) {
+  return text.replace(/[「」]/g, "");
+}
 function readSave(): Save {
   try {
     const v = JSON.parse(localStorage.getItem(STORAGE) || "null");
@@ -54,6 +100,7 @@ function readSave(): Save {
         : [],
       settings: {
         gender: v.settings?.gender === "male" ? "male" : "female",
+        inputMode: v.settings?.inputMode === "words" ? "words" : "voice",
         audio: v.settings?.audio !== false,
         tutorialDone: v.settings?.tutorialDone === true,
       },
@@ -61,31 +108,6 @@ function readSave(): Save {
   } catch {
     return defaults;
   }
-}
-function Modal({
-  title,
-  children,
-  onClose,
-}: {
-  title: string;
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    ref.current?.showModal();
-  }, []);
-  return (
-    <dialog ref={ref} className="modal" aria-label={title} onCancel={onClose}>
-      <div className="modal-heading">
-        <h2>{title}</h2>
-        <button aria-label="閉じる" className="icon-button" onClick={onClose}>
-          ×
-        </button>
-      </div>
-      {children}
-    </dialog>
-  );
 }
 function RuleCards() {
   return (
@@ -122,16 +144,14 @@ export default function Game() {
   const [ready, setReady] = useState(false);
   const [screen, setScreen] = useState<Screen>("home");
   const [tutorialIndex, setTutorialIndex] = useState(0);
-  const [mode, setMode] = useState<"voice" | "words">("voice");
+  const [turnPhase, setTurnPhase] = useState<TurnPhase>("thought");
+  const [typing, setTyping] = useState(true);
   const [selected, setSelected] = useState<number[]>([]);
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [transcript, setTranscript] = useState("");
   const [listening, setListening] = useState(false);
   const [voiceAvailable, setVoiceAvailable] = useState(true);
   const [voiceMessage, setVoiceMessage] = useState("");
-  const [panel, setPanel] = useState<"settings" | "journal" | "help" | null>(
-    null,
-  );
   const [showHint, setShowHint] = useState(false);
   const [storageWarning, setStorageWarning] = useState(false);
   const [dragId, setDragId] = useState<number | null>(null);
@@ -148,13 +168,37 @@ export default function Game() {
     setListening(false);
   }, []);
   const gotResult = useRef(false);
-  const busy = useRef(false);
   const step =
     screen === "tutorial" ? tutorial[tutorialIndex] : steps[save.index];
   const person = people[step.person];
   const bank = wordBank(step);
+  const mode = save.settings.inputMode;
   const acted = answer?.kind === "correct";
   const playing = screen === "game" || screen === "tutorial";
+  const dialogueText =
+    turnPhase === "thought"
+      ? step.context
+      : turnPhase === "npc"
+        ? `${step.line}\n${step.lineJa}`
+        : turnPhase === "reaction"
+          ? spoken(answer?.kind === "correct" ? step.result : answer?.message || "")
+          : "";
+  const dialogueOwner =
+    turnPhase === "thought"
+      ? "私"
+      : turnPhase === "reaction" &&
+          answer?.kind !== "correct" &&
+          answer?.kind !== "social"
+        ? "私"
+        : person.ja;
+  const dialogueRole =
+    dialogueOwner === "私" ? "王国騎士" : person.title;
+  const finishTyping = useCallback(() => setTyping(false), []);
+  function showPhase(phase: TurnPhase) {
+    stopSpeaking();
+    setTurnPhase(phase);
+    setTyping(phase !== "input");
+  }
   const update = useCallback(
     (fn: (s: Save) => Save) =>
       setSave((old) => {
@@ -169,25 +213,36 @@ export default function Game() {
     [],
   );
   useEffect(() => {
-    // Read browser-only preferences after hydration.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSave(readSave());
-    setReady(true);
-    setVoiceAvailable(!!recognitionConstructor());
-    window.speechSynthesis?.getVoices();
+    const stored = readSave();
+    const available = !!recognitionConstructor();
+    if (!available) stored.settings.inputMode = "words";
+    const frame = requestAnimationFrame(() => {
+      setSave(stored);
+      setReady(true);
+      setVoiceAvailable(available);
+      window.speechSynthesis?.getVoices();
+    });
     return () => {
+      cancelAnimationFrame(frame);
       stopRecognition();
       stopSpeaking();
     };
   }, [stopRecognition]);
   useEffect(() => {
-    if (!ready || !save.settings.audio || panel || !playing) return;
-    if (busy.current) speak([{ text: step.result, lang: "ja-JP" }]);
-    else
+    if (!ready || !save.settings.audio || !playing) return;
+    if (turnPhase === "thought")
+      speak([{ text: step.context, lang: "ja-JP" }]);
+    else if (turnPhase === "npc")
       speak([
-        { text: step.context, lang: "ja-JP" },
         { text: step.line, lang: "en-US" },
         { text: step.lineJa, lang: "ja-JP" },
+      ]);
+    else if (turnPhase === "reaction" && answer)
+      speak([
+        {
+          text: answer.kind === "correct" ? step.result : answer.message,
+          lang: "ja-JP",
+        },
       ]);
     return stopSpeaking;
   }, [
@@ -196,8 +251,9 @@ export default function Game() {
     save.index,
     tutorialIndex,
     save.settings.audio,
-    panel,
     playing,
+    turnPhase,
+    answer,
     step.context,
     step.line,
     step.lineJa,
@@ -213,7 +269,6 @@ export default function Game() {
   }, [screen, save.settings.audio]);
   function resetInput() {
     stopRecognition();
-    busy.current = false;
     setListening(false);
     setSelected([]);
     setAnswer(null);
@@ -223,6 +278,7 @@ export default function Game() {
   }
   function startGame(resume = false) {
     resetInput();
+    showPhase("thought");
     if (!resume)
       update((s) => ({
         ...s,
@@ -235,25 +291,17 @@ export default function Game() {
   }
   function beginTutorial() {
     resetInput();
+    showPhase("thought");
     setTutorialIndex(0);
     setScreen("tutorial");
   }
   function submit(text: string) {
-    if (busy.current) return;
+    if (turnPhase !== "input") return;
     const result = evaluate(text, step);
     setTranscript(text);
     setAnswer(result);
+    showPhase("reaction");
     if (result.kind === "correct") {
-      busy.current = true;
-      requestAnimationFrame(() =>
-        document.querySelector(".game-main .scene")?.scrollIntoView({
-          behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
-            .matches
-            ? "instant"
-            : "smooth",
-          block: "start",
-        }),
-      );
       if (screen === "game")
         update((s) => ({
           ...s,
@@ -262,11 +310,9 @@ export default function Game() {
               ? [...s.clues, step.clue]
               : s.clues,
         }));
-      if (save.settings.audio) speak([{ text: step.result, lang: "ja-JP" }]);
     } else if (result.kind === "social") {
       if (screen === "game")
         update((s) => ({ ...s, mistakes: s.mistakes + 1 }));
-      if (save.settings.audio) speak([{ text: result.message, lang: "ja-JP" }]);
     }
   }
   function listen() {
@@ -320,10 +366,10 @@ export default function Game() {
       );
     }
   }
-  function next() {
-    document.querySelector(".chapter-bar")?.scrollIntoView({ block: "start" });
+  function advanceStep() {
     stopSpeaking();
     resetInput();
+    showPhase("thought");
     if (screen === "tutorial") {
       if (tutorialIndex < 2) setTutorialIndex((i) => i + 1);
       else {
@@ -337,6 +383,16 @@ export default function Game() {
     else {
       update((s) => ({ ...s, completed: true }));
       setScreen("ending");
+    }
+  }
+  function advanceTurn() {
+    if (typing || turnPhase === "input") return;
+    if (turnPhase === "thought") showPhase("npc");
+    else if (turnPhase === "npc") showPhase("input");
+    else if (answer?.kind === "correct") advanceStep();
+    else {
+      resetInput();
+      showPhase("input");
     }
   }
   function reorder(id: number, target: number | null) {
@@ -363,18 +419,6 @@ export default function Game() {
     setAnswer(null);
     setDragId(null);
   }
-  function openPanel(value: "settings" | "journal" | "help") {
-    stopRecognition();
-    stopSpeaking();
-    setPanel(value);
-  }
-  function switchMode() {
-    stopRecognition();
-    setListening(false);
-    setMode((m) => (m === "voice" ? "words" : "voice"));
-    setAnswer(null);
-    setVoiceMessage("");
-  }
   const phaseIndex = screen === "tutorial" ? tutorialIndex : save.index;
   if (!ready)
     return (
@@ -383,97 +427,38 @@ export default function Game() {
       </div>
     );
   return (
-    <div className="app-shell">
-      <header className="site-header">
-        <button
-          className="brand"
-          onClick={() => {
-            stopRecognition();
-            stopSpeaking();
-            setScreen("home");
-          }}
-          aria-label="タイトルへ"
-        >
-          <span className="crest">♜</span>
-          <span>
-            THE MISSING CROWN<small>王冠と、ことばの騎士</small>
-          </span>
-        </button>
-        <div className="header-actions">
-          <span className="chapter-label">ENGLISH ADVENTURE · CHAPTER 01</span>
-          <button
-            className="icon-button"
-            onClick={() => {
-              if (save.settings.audio) stopSpeaking();
-              update((s) => ({
-                ...s,
-                settings: { ...s.settings, audio: !s.settings.audio },
-              }));
-            }}
-            aria-label={
-              save.settings.audio ? "読み上げをオフ" : "読み上げをオン"
-            }
-            title="読み上げ"
-          >
-            {save.settings.audio ? "♫" : "♪̸"}
-          </button>
-          <button
-            className="icon-button"
-            aria-label="設定"
-            onClick={() => openPanel("settings")}
-          >
-            ⚙
-          </button>
-        </div>
-      </header>
+    <div
+      className={`app-shell ${playing ? "is-playing" : ""} ${screen === "home" ? "is-setup" : ""}`}
+    >
       {storageWarning && (
         <p className="storage-warning" role="status">
           このブラウザでは記録を保存できません。このまま遊べますが、再読み込みすると進行が戻ります。
         </p>
       )}
       {screen === "home" && (
-        <main className="home">
-          <div className="home-art">
-            <Scene step={steps[0]} acted={false} index={0} />
-            <div className="home-art-overlay" />
-          </div>
-          <div className="home-content">
-            <p className="eyebrow">
-              <span /> AN ENGLISH LEARNING ADVENTURE
-            </p>
-            <h1>
-              王冠と、
-              <br />
-              ことばの騎士<span>The Missing Crown</span>
-            </h1>
-            <p className="home-lead">
-              王冠が消えた。戴冠式まで、あと20分。
-              <br />
-              王国を救うのは、あなたのひと言。
-            </p>
-            <p className="home-description">
-              従者には、はっきりと。同僚には、親しみを。
-              <br />
-              伯爵には、敬意をこめて。
-              <br />
-              英語で頼んで、謎を解く冒険へ。
-            </p>
-            <div className="home-meta">
-              <span>
-                01 <small>王冠消失事件</small>
-              </span>
-              <span>
-                18 <small>回のことばの冒険</small>
-              </span>
-              <span>約20分</span>
+        <main className="setup-page">
+          <div className="setup-backdrop" aria-hidden="true" />
+          <section className="setup-card">
+            <div className="setup-heading">
+              <p className="eyebrow">PLAYER SETUP</p>
+              <h1>冒険の準備</h1>
+              <p>あなたは王城に仕える騎士。姿と遊び方を選んでください。</p>
             </div>
+            <div className="player-preview" aria-label="あなたの騎士">
+              <PlayerKnight gender={save.settings.gender} />
+              <div className="player-badge">
+                <span>YOU</span>
+                <strong>王国騎士</strong>
+              </div>
+              <span className="player-shield">♜</span>
+            </div>
+            <div className="setup-options">
             <fieldset className="gender-choice">
-              <legend>
-                あなたの騎士を選ぶ <small>あとで設定から変更できます</small>
-              </legend>
+              <legend>騎士の姿</legend>
               {(["female", "male"] as const).map((g) => (
                 <button
                   key={g}
+                  aria-label={g === "female" ? "女性の騎士" : "男性の騎士"}
                   aria-pressed={save.settings.gender === g}
                   onClick={() =>
                     update((s) => ({
@@ -483,91 +468,118 @@ export default function Game() {
                   }
                 >
                   <span>{g === "female" ? "♘" : "♞"}</span>
-                  {g === "female" ? "女性の騎士" : "男性の騎士"}
+                  {g === "female" ? "女性" : "男性"}
                 </button>
               ))}
             </fieldset>
+              <fieldset className="input-choice">
+                <legend>入力方法</legend>
+                <button
+                  aria-pressed={mode === "voice"}
+                  disabled={!voiceAvailable}
+                  onClick={() =>
+                    update((s) => ({
+                      ...s,
+                      settings: { ...s.settings, inputMode: "voice" },
+                    }))
+                  }
+                >
+                  <span>●</span>
+                  <strong>音声で話す</strong>
+                  <small>{voiceAvailable ? "マイクを使用" : "この端末では利用不可"}</small>
+                </button>
+                <button
+                  aria-pressed={mode === "words"}
+                  onClick={() =>
+                    update((s) => ({
+                      ...s,
+                      settings: { ...s.settings, inputMode: "words" },
+                    }))
+                  }
+                >
+                  <span>◆</span>
+                  <strong>語句を選ぶ</strong>
+                  <small>タップで組み立て</small>
+                </button>
+              </fieldset>
+              <div className="setup-audio">
+                <span>
+                  セリフの読み上げ<small>日本語・英語</small>
+                </span>
+                <button
+                  role="switch"
+                  aria-checked={save.settings.audio}
+                  className={`switch ${save.settings.audio ? "on" : ""}`}
+                  onClick={() =>
+                    update((s) => ({
+                      ...s,
+                      settings: { ...s.settings, audio: !s.settings.audio },
+                    }))
+                  }
+                >
+                  {save.settings.audio ? "ON" : "OFF"}
+                </button>
+              </div>
+            </div>
+            {!save.completed && save.index > 0 && (
+              <button
+                className="text-button setup-resume"
+                onClick={() => startGame(true)}
+              >
+                保存した場面 {save.index + 1} / 18 から再開
+              </button>
+            )}
+          </section>
+          <div className="start-dock">
             <button
-              className="primary home-start"
+              className="setup-start"
+              aria-label="物語をはじめる"
               onClick={() => {
                 resetInput();
                 setScreen("rules");
               }}
             >
-              物語をはじめる <span>→</span>
+              <strong>START</strong>
+              <span>冒険を始める</span>
             </button>
-            {!save.completed && save.index > 0 && (
-              <button
-                className="text-button continue-save"
-                onClick={() => startGame(true)}
-              >
-                続きから · {save.index + 1} / 18 →
-              </button>
-            )}
-            <p className="home-note">
-              マイクで話すのがおすすめ。声を出せない時は語句でも遊べます。
-            </p>
-          </div>
-          <div className="home-bottom">
-            <span>言葉を選ぶ。その先に、物語がある。</span>
-            <span>日本語ガイドつき · スマホ / PC</span>
           </div>
         </main>
       )}
       {screen === "rules" && (
-        <main className="rules-page">
-          <p className="eyebrow">BEFORE THE ADVENTURE</p>
-          <h1>
-            {save.settings.tutorialDone
-              ? "チュートリアルは必要ですか？"
-              : "相手に合わせて、ことばを選ぼう。"}
-          </h1>
-          <p>
-            あなたは城に仕える
-            {save.settings.gender === "female"
-              ? "若き女性騎士"
-              : "若き男性騎士"}
-            。この物語では、3つの言い方を使い分けます。
-          </p>
-          <RuleCards />
-          <div className="rule-note">
-            <span>✦</span>
-            <div>
-              <strong>話すのは、空欄の部分だけ。</strong>
-              <p>
-                <b>Can you open</b> <span className="muted">the door?</span>
-              </p>
-              <p>
-                目的語の部分は用意してあります。文全体を話してもOKです。間違えても、何度でも挑戦できます。
-              </p>
+        <main className="intro-page">
+          <div className="intro-scene">
+            <Scene step={steps[0]} acted={false} index={0} />
+            <div className="intro-player">
+              <PlayerKnight gender={save.settings.gender} />
             </div>
           </div>
-          <p className="real-world-note">
-            このゲームは身分のある王国での練習です。実際の英会話では、親しさや場面によって丁寧さを選びます。
-          </p>
-          <div className="rules-actions">
-            <button className="primary" onClick={beginTutorial}>
+          <section className="intro-dialogue">
+            <span className="dialogue-owner">私 · 王国騎士</span>
+            <p>
+              ここはエルドリア王国。私は王城に仕える若き騎士だ。今日は新しい国王の戴冠式。
+              私の役目は、仲間に英語で指示を出し、式を無事に迎えること。
+            </p>
+            <strong>
               {save.settings.tutorialDone
-                ? "もう一度練習する"
-                : "3回の練習で試してみる"}{" "}
-              →
-            </button>
-            <button
-              className={
-                save.settings.tutorialDone
-                  ? "primary secondary-primary"
-                  : "text-button"
-              }
-              onClick={() => startGame(false)}
-            >
-              物語へ進む →
-            </button>
-          </div>
-          {save.index > 0 && !save.completed && (
-            <button className="text-button" onClick={() => startGame(true)}>
-              保存した続きから遊ぶ
-            </button>
-          )}
+                ? "チュートリアルを受けますか？"
+                : "まずは3人の仲間に声をかけ、頼み方を覚えよう。"}
+            </strong>
+            <div className="intro-actions">
+              <button className="primary" onClick={beginTutorial}>
+                {save.settings.tutorialDone
+                  ? "チュートリアルを始める"
+                  : "チュートリアルへ"}
+              </button>
+              {save.settings.tutorialDone && (
+                <button className="primary secondary-primary" onClick={() => startGame(false)}>
+                  本編から始める
+                </button>
+              )}
+            </div>
+            {!save.settings.tutorialDone && (
+              <small>初回はチュートリアルから始まります。</small>
+            )}
+          </section>
         </main>
       )}
       {playing && (
@@ -598,404 +610,183 @@ export default function Game() {
                 }}
               />
             </div>
-            <p className="mobile-context">{step.context}</p>
             <Scene
               step={step}
               acted={acted}
               index={screen === "tutorial" ? 0 : save.index}
             />
-            {acted ? (
-              <div className="dialogue action-result">
-                <div className="speaker-label">
-                  <span />
-                  STORY UPDATE<small>あなたのことばで、物語が動いた。</small>
-                </div>
-                <p className="result-narration">{step.result}</p>
-                <button className="primary next-button" onClick={next}>
-                  {screen === "tutorial" && tutorialIndex === 2
-                    ? "王冠の物語へ"
-                    : screen === "game" && save.index === 17
-                      ? "エンディングへ"
-                      : "物語を進める"}{" "}
-                  <span>→</span>
-                </button>
-              </div>
-            ) : (
-              <div className="dialogue">
-                <div className="speaker-label">
-                  <span style={{ background: person.color }} />
-                  {person.name}
-                  <small>
-                    {person.ja} · {person.title}
-                  </small>
-                  <button
-                    className="icon-button replay"
-                    aria-label="セリフをもう一度聞く"
-                    onClick={() =>
-                      speak([
-                        { text: step.line, lang: "en-US" },
-                        { text: step.lineJa, lang: "ja-JP" },
-                      ])
-                    }
-                  >
-                    ▷
-                  </button>
-                </div>
-                <p className="npc-english">“{step.line}”</p>
-                <p className="npc-ja">{step.lineJa}</p>
-              </div>
-            )}
-
-            <section className="input-panel" aria-label="あなたの依頼">
-              <div className="input-heading">
-                <span className="eyebrow">
-                  YOUR TURN <span>あなたのひと言</span>
-                </span>
-                <button
-                  className="text-button mode-toggle"
-                  disabled={acted}
-                  onClick={switchMode}
-                >
-                  {mode === "voice"
-                    ? "声が出せませんか？ 語句で組み立てる"
-                    : "音声で伝える"}{" "}
-                  ⇄
-                </button>
-              </div>
-              <p className="request-ja">{step.ja}</p>
-              <div
-                className={`sentence-area ${acted ? "sentence-correct" : ""}`}
-              >
-                <span className="sentence-blank">
-                  {acted
-                    ? correctPrefix(step)
-                    : mode === "words" && selected.length
-                      ? selected.map((id) => bank[id].word).join(" ")
-                      : "　　　　　　　　　"}
-                </span>
-                <span className="sentence-tail">
-                  {" "}
-                  {step.tail}
-                  {person.rank === "lower" ? "." : "?"}
-                </span>
-              </div>
-              {!acted && mode === "voice" && (
-                <div className="voice-input">
-                  <button
-                    className={`mic-button ${listening ? "listening" : ""}`}
-                    onClick={listen}
-                    disabled={!voiceAvailable}
-                    aria-label={listening ? "録音を終了" : "マイクで話す"}
-                  >
-                    <svg
-                      width="24"
-                      height="28"
-                      viewBox="0 0 24 28"
-                      aria-hidden="true"
-                    >
-                      <rect
-                        x="8"
-                        y="2"
-                        width="8"
-                        height="15"
-                        rx="4"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                      />
-                      <path
-                        d="M4 11v3a8 8 0 0 0 16 0v-3M12 22v4m-4 0h8"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </button>
-                  <div>
-                    <strong>
-                      {listening
-                        ? "聞いています…"
-                        : voiceAvailable
-                          ? "マイクを押して、英語で伝えよう"
-                          : "このブラウザは音声入力に対応していません"}
-                    </strong>
-                    <p>
-                      {voiceAvailable
-                        ? "空欄だけでOK。文全体を言っても大丈夫。"
-                        : "語句で組み立てるモードなら、そのまま遊べます。"}
-                    </p>
-                    {!voiceAvailable && (
-                      <button className="text-button" onClick={switchMode}>
-                        語句モードで続ける →
-                      </button>
-                    )}
+            <div className="player-presence">
+              <PlayerKnight gender={save.settings.gender} />
+              <span>YOU</span>
+            </div>
+            <section
+              className={`rpg-turn-panel phase-${turnPhase}`}
+              aria-label={turnPhase === "input" ? "あなたの番" : `${dialogueOwner}のセリフ`}
+            >
+              {turnPhase === "input" ? (
+                <div className="rpg-input">
+                  <div className="rpg-speaker-row">
+                    <span className="rpg-speaker">あなた</span>
+                    <small>{mode === "voice" ? "音声で伝える" : "語句を選んで伝える"}</small>
                   </div>
-                </div>
-              )}
-              {!acted && mode === "words" && (
-                <div className="word-input">
-                  <div
-                    className="word-answer"
-                    aria-label="組み立てた語句"
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      if (dragId !== null) reorder(dragId, null);
-                    }}
-                  >
-                    {selected.length === 0 ? (
-                      <span className="word-placeholder">
-                        語句をタップ、またはここへドラッグ
-                      </span>
-                    ) : (
-                      selected.map((id, i) => (
-                        <div
-                          key={id}
-                          className="selected-word"
-                          draggable
-                          onDragStart={(e) => {
-                            setDragId(id);
-                            e.dataTransfer.setData("text/plain", String(id));
-                          }}
-                          onDragEnd={() => setDragId(null)}
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (dragId !== null && dragId !== id)
-                              reorder(dragId, id);
-                          }}
-                        >
-                          <button
-                            aria-label={`${bank[id].word}を戻す`}
-                            onClick={() => {
-                              setSelected((s) => s.filter((x) => x !== id));
-                              setAnswer(null);
-                            }}
-                          >
-                            {bank[id].word}
-                            <span>×</span>
-                          </button>
-                          <div className="reorder-buttons">
-                            <button
-                              disabled={i === 0}
-                              aria-label={`${bank[id].word}を左へ`}
-                              onClick={() => reorder(id, selected[i - 1])}
-                            >
-                              ‹
-                            </button>
-                            <button
-                              disabled={i === selected.length - 1}
-                              aria-label={`${bank[id].word}を右へ`}
-                              onClick={() => {
-                                const target = selected[i + 2] ?? null;
-                                reorder(id, target);
+                  <div className="rpg-request-row">
+                    <p>{step.ja}</p>
+                    <span>使う動詞：<b>{step.verb}</b></span>
+                  </div>
+                  <div className="sentence-area">
+                    <span className="sentence-blank">
+                      {mode === "words" && selected.length
+                        ? selected.map((id) => bank[id].word).join(" ")
+                        : "　　　　　　　　　"}
+                    </span>
+                    <span className="sentence-tail">
+                      {" "}{step.tail}{person.rank === "lower" ? "." : "?"}
+                    </span>
+                  </div>
+                  {mode === "voice" ? (
+                    <div className="voice-input">
+                      <button
+                        className={`mic-button ${listening ? "listening" : ""}`}
+                        onClick={listen}
+                        disabled={!voiceAvailable}
+                        aria-label={listening ? "録音を終了" : "マイクで話す"}
+                      >
+                        <svg width="24" height="28" viewBox="0 0 24 28" aria-hidden="true">
+                          <rect x="8" y="2" width="8" height="15" rx="4" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                          <path d="M4 11v3a8 8 0 0 0 16 0v-3M12 22v4m-4 0h8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="word-input">
+                      <div
+                        className="word-answer"
+                        aria-label="組み立てた語句"
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (dragId !== null) reorder(dragId, null);
+                        }}
+                      >
+                        {selected.length === 0 ? (
+                          <span className="word-placeholder">語句を順番にタップ</span>
+                        ) : (
+                          selected.map((id) => (
+                            <div
+                              key={id}
+                              className="selected-word"
+                              draggable
+                              onDragStart={(e) => {
+                                setDragId(id);
+                                e.dataTransfer.setData("text/plain", String(id));
+                              }}
+                              onDragEnd={() => setDragId(null)}
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (dragId !== null && dragId !== id) reorder(dragId, id);
                               }}
                             >
-                              ›
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  <div className="word-bank" aria-label="使える語句">
-                    {bank.map(({ word, id }) => (
-                      <button
-                        key={id}
-                        draggable={!selected.includes(id)}
-                        disabled={selected.includes(id)}
-                        onClick={() => {
-                          setSelected((s) => [...s, id]);
-                          setAnswer(null);
-                        }}
-                        onDragStart={(e) => {
-                          setDragId(id);
-                          e.dataTransfer.setData("text/plain", String(id));
-                        }}
-                        onDragEnd={() => setDragId(null)}
-                      >
-                        {word}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="word-actions">
-                    <button
-                      className="text-button"
-                      disabled={!selected.length}
-                      onClick={() => {
-                        setSelected([]);
-                        setAnswer(null);
-                      }}
-                    >
-                      すべて戻す
-                    </button>
-                    <button
-                      className="primary"
-                      disabled={!selected.length}
-                      onClick={() =>
-                        submit(selected.map((id) => bank[id].word).join(" "))
-                      }
-                    >
-                      このことばで伝える →
-                    </button>
-                  </div>
-                </div>
-              )}
-              {voiceMessage && (
-                <p className="system-message" role="status">
-                  {voiceMessage}
-                </p>
-              )}
-              {transcript && mode === "voice" && (
-                <p className="transcript">
-                  聞き取ったことば：<span>{transcript}</span>
-                </p>
-              )}
-              {answer && (
-                <div
-                  className={`feedback feedback-${answer.kind}`}
-                  role="status"
-                >
-                  {answer.kind === "correct" ? (
-                    <>
-                      <span className="feedback-symbol">✓</span>
-                      <div>
-                        <strong>ことばが、届いた。</strong>
+                              <button
+                                aria-label={`${bank[id].word}を戻す`}
+                                onClick={() => setSelected((s) => s.filter((x) => x !== id))}
+                              >
+                                {bank[id].word}<span>×</span>
+                              </button>
+                            </div>
+                          ))
+                        )}
                       </div>
-                    </>
-                  ) : (
-                    <>
-                      <span className="feedback-symbol">
-                        {answer.kind === "social" ? "…" : "↻"}
-                      </span>
-                      <div>
-                        <strong>
-                          {answer.kind === "social"
-                            ? `${person.ja}の反応`
-                            : answer.kind === "empty"
-                              ? "もう一度、どうぞ"
-                              : "ことばの形を確認しよう"}
-                        </strong>
-                        <p>{answer.message}</p>
+                      <div className="word-bank" aria-label="使える語句">
+                        {bank.map(({ word, id }) => (
+                          <button
+                            key={id}
+                            draggable={!selected.includes(id)}
+                            disabled={selected.includes(id)}
+                            onClick={() => setSelected((s) => [...s, id])}
+                            onDragStart={(e) => {
+                              setDragId(id);
+                              e.dataTransfer.setData("text/plain", String(id));
+                            }}
+                            onDragEnd={() => setDragId(null)}
+                          >
+                            {word}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="word-actions">
+                        <button className="text-button" disabled={!selected.length} onClick={() => setSelected([])}>
+                          すべて戻す
+                        </button>
                         <button
-                          className="text-button"
-                          onClick={() => {
-                            setAnswer(null);
-                            setSelected([]);
-                            setTranscript("");
-                          }}
+                          className="primary"
+                          disabled={!selected.length}
+                          onClick={() => submit(selected.map((id) => bank[id].word).join(" "))}
                         >
-                          もう一度伝える ↻
+                          このことばで伝える
                         </button>
                       </div>
-                    </>
+                    </div>
+                  )}
+                  {voiceMessage && <p className="system-message" role="status">{voiceMessage}</p>}
+                  {transcript && mode === "voice" && (
+                    <p className="transcript">聞き取ったことば：<span>{transcript}</span></p>
+                  )}
+                  <div className="input-footnote">
+                    <span>
+                      {person.rank === "lower"
+                        ? "↓ あなたより下の身分"
+                        : person.rank === "equal"
+                          ? "＝ あなたと同じ身分"
+                          : "↑ あなたより上の身分"}
+                    </span>
+                    <button className="text-button" onClick={() => setShowHint((v) => !v)}>
+                      {showHint ? "ヒントを閉じる" : "ヒントを見る"}
+                    </button>
+                  </div>
+                  {showHint && (
+                    <p className="hint">
+                      {person.rank === "lower"
+                        ? "動詞の原形から始めよう。"
+                        : person.rank === "equal"
+                          ? "Can you に動詞の原形を続けよう。"
+                          : "Would you mind に動詞のing形を続けよう。"}
+                      <strong>{correctPrefix(step)} <span>{step.tail}</span></strong>
+                    </p>
                   )}
                 </div>
-              )}
-              {!acted && (
-                <div className="input-footnote">
-                  <span>
-                    {person.rank === "lower"
-                      ? "↓ あなたより下の身分"
-                      : person.rank === "equal"
-                        ? "＝ あなたと同じ身分"
-                        : "↑ あなたより上の身分"}
-                  </span>
-                  <button
-                    className="text-button"
-                    onClick={() => setShowHint((v) => !v)}
-                  >
-                    {showHint ? "ヒントを閉じる" : "ヒントを見る"} ◇
-                  </button>
+              ) : (
+                <div className="rpg-dialogue">
+                  <div className="rpg-speaker-row">
+                    <span className="rpg-speaker">{dialogueOwner}</span>
+                    <small>{dialogueRole}</small>
+                  </div>
+                  <Typewriter
+                    key={`${phaseIndex}-${turnPhase}-${answer?.kind || "none"}`}
+                    text={dialogueText}
+                    onDone={finishTyping}
+                  />
                 </div>
               )}
-              {showHint && !acted && (
-                <p className="hint">
-                  {person.rank === "lower"
-                    ? "動詞の原形から始めよう。"
-                    : person.rank === "equal"
-                      ? "Can you に動詞の原形を続けよう。"
-                      : "Would you mind に動詞のing形を続けよう。"}
-                  <br />
-                  <strong>{correctPrefix(step)}</strong>
-                  <span className="muted"> {step.tail}</span>
-                </p>
-              )}
+              <button
+                className="story-next"
+                onClick={advanceTurn}
+                disabled={typing || turnPhase === "input"}
+              >
+                <span>
+                  {turnPhase === "reaction" && answer?.kind !== "correct"
+                    ? "もう一度"
+                    : turnPhase === "reaction" && screen === "tutorial" && tutorialIndex === 2
+                      ? "本編へ"
+                      : turnPhase === "reaction" && screen === "game" && save.index === 17
+                        ? "エンディングへ"
+                        : "次へ"}
+                </span>
+                <b>→</b>
+              </button>
             </section>
           </section>
-          <aside className="quest-sidebar">
-            <div className="quest-card">
-              <p className="eyebrow">YOUR QUEST</p>
-              <div className="quest-icon">
-                <Item kind="crown" />
-              </div>
-              <h2>消えた王冠を探せ</h2>
-              <p>{step.context}</p>
-              <div className="quest-time">
-                <span>◷ 戴冠式まで</span>
-                <strong>
-                  {save.index < 7
-                    ? "20"
-                    : save.index < 12
-                      ? "10"
-                      : save.index < 14
-                        ? "05"
-                        : save.index < 15
-                          ? "02"
-                          : "あと少し"}
-                  <small>{save.index < 15 ? "分" : ""}</small>
-                </strong>
-              </div>
-              <p className="time-note">
-                物語上の時刻です。自分のペースで進めましょう。
-              </p>
-            </div>
-            <div className="party-card">
-              <p className="eyebrow">YOUR COMPANIONS</p>
-              {(["thomas", "elena", "aldric"] as const).map((p) => (
-                <div
-                  className={`party-member ${p === step.person ? "active" : ""}`}
-                  key={p}
-                >
-                  <div className="party-avatar">
-                    <Character person={p} />
-                  </div>
-                  <div>
-                    <strong>{people[p].name}</strong>
-                    <span>{people[p].title}</span>
-                  </div>
-                  <span className="party-rank">
-                    {people[p].rank === "lower"
-                      ? "↓"
-                      : people[p].rank === "equal"
-                        ? "＝"
-                        : "↑"}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <button
-              className="journal-button"
-              onClick={() => openPanel("journal")}
-            >
-              <span>▤ 冒険の手帳</span>
-              <small>{save.clues.length} の手がかり →</small>
-            </button>
-            <button
-              className="text-button sidebar-help"
-              onClick={() => openPanel("help")}
-            >
-              ことばのルールを確認 ◇
-            </button>
-          </aside>
-          <button
-            className="mobile-journal"
-            onClick={() => openPanel("journal")}
-          >
-            ▤ 手帳 · {save.clues.length}
-          </button>
         </main>
       )}
       {screen === "ending" && (
@@ -1038,100 +829,6 @@ export default function Game() {
           </button>
           <p className="eyebrow end-label">THE END · THANK YOU FOR PLAYING</p>
         </main>
-      )}
-      <footer className="site-footer">
-        <span>THE MISSING CROWN</span>
-        <span>あなたのひと言で、物語が動く。</span>
-        <button className="text-button" onClick={() => openPanel("help")}>
-          遊び方
-        </button>
-      </footer>
-      {panel === "settings" && (
-        <Modal title="冒険の設定" onClose={() => setPanel(null)}>
-          <label className="setting-row">
-            読み上げ
-            <button
-              role="switch"
-              aria-checked={save.settings.audio}
-              className={`switch ${save.settings.audio ? "on" : ""}`}
-              onClick={() => {
-                stopSpeaking();
-                update((s) => ({
-                  ...s,
-                  settings: { ...s.settings, audio: !s.settings.audio },
-                }));
-              }}
-            >
-              {save.settings.audio ? "ON" : "OFF"}
-            </button>
-          </label>
-          <p className="setting-note">
-            利用できる場合はGoogleの音声を優先します。音声入力はブラウザや端末の対応状況によって利用できない場合があります。
-          </p>
-          <fieldset className="gender-choice">
-            <legend>プレイヤーの性別</legend>
-            {(["female", "male"] as const).map((g) => (
-              <button
-                key={g}
-                aria-pressed={save.settings.gender === g}
-                onClick={() =>
-                  update((s) => ({
-                    ...s,
-                    settings: { ...s.settings, gender: g },
-                  }))
-                }
-              >
-                {g === "female" ? "女性の騎士" : "男性の騎士"}
-              </button>
-            ))}
-          </fieldset>
-          <button
-            className="text-button"
-            onClick={() => {
-              setPanel(null);
-              resetInput();
-              setScreen("rules");
-            }}
-          >
-            ルールとチュートリアルを見る →
-          </button>
-          <p className="setting-note">
-            性別・チュートリアルの受講状況・冒険の進行は、このブラウザに自動保存されます。
-          </p>
-        </Modal>
-      )}
-      {panel === "help" && (
-        <Modal title="ことばのルール" onClose={() => setPanel(null)}>
-          <RuleCards />
-          <p>
-            入力するのは、依頼のはじめと動詞だけ。後ろの言葉は画面に用意してあります。文全体を話しても正解です。
-          </p>
-          <p>
-            語句モードではタップで選択・取り消しができます。選んだ語句はドラッグ、または下の矢印で並べ替えられます。
-          </p>
-          <p className="real-world-note">
-            身分による使い分けはこの物語の設定です。実際には、相手との関係や状況に合わせて選びましょう。
-          </p>
-        </Modal>
-      )}
-      {panel === "journal" && (
-        <Modal title="冒険の手帳" onClose={() => setPanel(null)}>
-          <p className="eyebrow">CLUES & DISCOVERIES</p>
-          {save.clues.length ? (
-            <ol className="clue-list">
-              {save.clues.map((c, i) => (
-                <li key={c}>
-                  <span>{String(i + 1).padStart(2, "0")}</span>
-                  {c}
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <p>
-              まだ手がかりはありません。仲間に声をかけて、王冠の行方を探しましょう。
-            </p>
-          )}
-        </Modal>
       )}
     </div>
   );

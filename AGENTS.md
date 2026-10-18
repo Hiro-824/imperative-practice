@@ -28,3 +28,11 @@ Retain qualifying friction even if it is later fixed or worked around; record th
 Before the final response, run one reporting pass. If candidates remain, from this file's directory run `npx --no-install next internal agent-feedback-instructions` once without piping or truncating its output. Follow its output or error guidance. If a network sandbox blocks it, retry with network access; if it still returns no output, continue normally.
 
 <!-- END:nextjs-agent-feedback -->
+
+## Browser validation policy
+
+- Do not perform browser-based validation, including browser E2E tests or interactive browser checks, unless the user explicitly requests it.
+- If browser validation appears necessary but the user has not requested it, ask for permission before running it.
+- When browser validation is authorized, use a headless browser only and validate by capturing screenshots.
+- Keep authorized browser runs and screenshots to the minimum number needed to verify the change.
+- Non-browser checks such as linting, type checking, and unit tests do not require this browser-validation permission.

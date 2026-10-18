@@ -57,6 +57,64 @@ export function Character({
     </svg>
   );
 }
+
+export function PlayerKnight({
+  gender,
+  className = "",
+}: {
+  gender: "male" | "female";
+  className?: string;
+}) {
+  const gradientId = useId();
+  const metalId = useId();
+  return (
+    <svg
+      viewBox="0 0 320 620"
+      className={`player-knight ${className}`}
+      role="img"
+      aria-label={gender === "female" ? "女性の王国騎士" : "男性の王国騎士"}
+    >
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
+          <stop stopColor="#315447" />
+          <stop offset="1" stopColor="#142c25" />
+        </linearGradient>
+        <linearGradient id={metalId} x1="0" y1="0" x2="1" y2="1">
+          <stop stopColor="#e5dfc7" />
+          <stop offset=".45" stopColor="#8d9b91" />
+          <stop offset="1" stopColor="#465850" />
+        </linearGradient>
+      </defs>
+      <path d="M91 242 42 548h238l-53-306Z" fill="#172e27" opacity=".8" />
+      <path d="M112 388 90 583h52l21-165Z" fill="#202c29" />
+      <path d="m177 418 17 165h52l-26-195Z" fill="#26342f" />
+      <path d="M83 578h68v25H65q-6-20 18-25Zm102 0h69q23 5 12 25h-82Z" fill="#101815" />
+      <path d="m96 237-56 185 34 12 63-146Zm128 0 55 185-35 12-61-146Z" fill={`url(#${metalId})`} />
+      <path d="M91 229q69-44 138 0l-14 205q-54 30-111 0Z" fill={`url(#${metalId})`} stroke="#e5d29b" strokeWidth="6" />
+      <path d="M119 252h82l17 161q-58 29-116 0Z" fill={`url(#${gradientId})`} />
+      <path d="m160 270 22 45-22 34-22-34Z" fill="#d4b77c" />
+      <path d="M105 241q56 23 110 0M105 365q55 25 110 0" fill="none" stroke="#f0e4c5" strokeOpacity=".7" strokeWidth="6" />
+      <path d="M129 220v-34h62v34" fill="#c58d70" />
+      <ellipse cx="160" cy="145" rx="61" ry="70" fill="#d8a17f" />
+      {gender === "female" ? (
+        <>
+          <path d="M97 146q-8-81 64-87 79 9 62 102l-22-41-18-27q-30 35-83 42Z" fill="#372820" />
+          <path d="M106 122q-17 65 12 97l-28 42q-30-94 7-151Zm107-4q23 63-8 101l28 43q30-103-10-153Z" fill="#372820" />
+        </>
+      ) : (
+        <path d="M99 142q-4-76 63-83 68 8 62 84l-19-34-21-18q-30 28-82 37Z" fill="#4b3427" />
+      )}
+      <ellipse cx="137" cy="151" rx="5" ry="7" fill="#20302b" />
+      <ellipse cx="183" cy="151" rx="5" ry="7" fill="#20302b" />
+      <path d="M143 181q17 12 34 0" fill="none" stroke="#824f43" strokeWidth="4" strokeLinecap="round" />
+      <path d="M93 215q68 24 134 0l-11 39q-58 24-113 0Z" fill="#c7d0c8" stroke="#f1e5c8" strokeWidth="5" />
+      <path d="M258 279 190 570" stroke="#e9d59b" strokeWidth="10" />
+      <path d="m181 555 26 7-25 45-25-8Z" fill="#d4b77c" />
+      <path d="M27 350h87v119q-44 40-87 0Z" fill="#294b40" stroke="#d4b77c" strokeWidth="7" />
+      <path d="m70 374 17 31-17 35-17-35Z" fill="#d4b77c" />
+    </svg>
+  );
+}
 export function Item({
   kind,
   className = "",
