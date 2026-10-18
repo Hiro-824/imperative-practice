@@ -568,7 +568,6 @@ export default function Game() {
               location={screen === "prologue" ? "王冠の保管室" : "戴冠式の大広間"}
               character={scriptCharacter}
               bubble={screen === "finale" && scriptIndex === 0 ? "crown" : undefined}
-              dragon={screen === "finale"}
             />
             <section className="dialogue-panel">
               <div className="speaker-line"><strong>{scriptOwner}</strong><span>{scriptRole}</span></div>
@@ -644,9 +643,9 @@ export default function Game() {
           <h1>王冠奪還任務、完了</h1>
           <p>{name}の依頼記録</p>
           <section className="result-card">
-            <Metric label="目下への依頼" value={save.stats.lower} max={6} />
-            <Metric label="同僚への依頼" value={save.stats.equal} max={6} />
-            <Metric label="目上への依頼" value={save.stats.higher} max={6} />
+            <Metric label="目下への依頼" value={6} max={6} />
+            <Metric label="同僚への依頼" value={6} max={6} />
+            <Metric label="目上への依頼" value={6} max={6} />
             <Metric label="文法エラー" value={save.stats.grammarMistakes} max={1} mistake />
             <Metric label="敬意レベルの選択ミス" value={save.stats.choiceMistakes} max={1} mistake />
           </section>
