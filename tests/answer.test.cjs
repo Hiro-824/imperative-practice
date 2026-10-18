@@ -6,6 +6,8 @@ const {
   people,
   sentence,
   correctPrefix,
+  openingScript,
+  finaleScript,
 } = require("../work/test-build/story.js");
 const { evaluate, wordBank } = require("../work/test-build/answer.js");
 test("scenario contains all 18 requests, six per rank, with usable verb forms", () => {
@@ -23,7 +25,30 @@ test("scenario contains all 18 requests, six per rank, with usable verb forms", 
       assert.ok(words.includes(word));
   }
 });
-test("all grammar-valid but socially wrong forms trigger NPC retry for every request", () => {
+test("every spoken story beat is bilingual and every requested bubble asset is used", () => {
+  for (const step of [...steps, ...tutorial]) {
+    assert.ok(step.thoughtEn && step.thoughtJa);
+    assert.ok(step.resultEn && step.resultJa);
+    assert.ok(step.ja.includes(`(${step.verb})`));
+  }
+  for (const line of [...openingScript, ...finaleScript])
+    assert.ok(line.en && line.ja);
+  const bubbles = new Set([...steps, ...tutorial].map((step) => step.bubble));
+  for (const required of [
+    "bag",
+    "tracks",
+    "cloakedMan",
+    "menagerieCrest",
+    "record",
+    "princessSeal",
+    "brooch",
+    "honeyCakes",
+    "basket",
+    "crown",
+  ])
+    assert.ok(bubbles.has(required), required);
+});
+test("all grammar-valid but socially wrong forms are choice mistakes", () => {
   for (const step of steps) {
     const forms = [
       ["lower", step.verb],
@@ -34,22 +59,32 @@ test("all grammar-valid but socially wrong forms trigger NPC retry for every req
       const result = evaluate(prefix, step);
       assert.equal(
         result.kind,
-        rank === people[step.person].rank ? "correct" : "social",
+        rank === people[step.person].rank ? "correct" : "choice",
       );
     }
   }
 });
-test("base versus ing is strictly distinguished, extra words are not silently accepted", () => {
+test("Would you plus base verb is a choice, and works naturally for a colleague", () => {
+  for (const step of steps) {
+    assert.equal(
+      evaluate(`Would you ${step.verb}`, step).kind,
+      people[step.person].rank === "equal" ? "correct" : "choice",
+    );
+  }
+});
+test("base versus ing is strictly distinguished while full spoken requests are accepted", () => {
   for (const step of steps) {
     for (const bad of [
       `Would you mind ${step.verb}`,
       `Can you ${step.ing}`,
       step.ing,
       `Could you ${step.verb}`,
-      `${correctPrefix(step)} something else`,
       `I said ${correctPrefix(step)}`,
     ])
       assert.equal(evaluate(bad, step).kind, "grammar", bad);
+    assert.equal(wordBank(step).some((entry) => entry.word === "Could"), false);
+    assert.equal(evaluate(`${correctPrefix(step)} ${step.tail}`, step).kind, "correct");
+    assert.equal(evaluate(`${correctPrefix(step)} ${step.tail}, please`, step).kind, "correct");
   }
 });
 test("case, punctuation, spaces and apostrophe variants work without changing the verb", () => {

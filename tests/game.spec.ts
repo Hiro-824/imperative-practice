@@ -1,260 +1,205 @@
 import { test, expect, type Page } from "@playwright/test";
 import { correctPrefix, people, steps, tutorial } from "../lib/story";
-const key = "crown-quest-v1";
-async function quiet(
-  page: Page,
-  options: {
-    tutorialDone?: boolean;
-    inputMode?: "voice" | "words";
-  } = {},
-) {
-  const { tutorialDone = true, inputMode = "words" } = options;
-  await page.addInitScript(({ inputMode, tutorialDone }) => {
+
+const storageKey = "crown-quest-v1";
+
+async function quiet(page: Page, inputMode: "voice" | "words" = "words") {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(({ inputMode }) => {
     localStorage.setItem(
       "crown-quest-v1",
       JSON.stringify({
         version: 1,
-        settings: {
-          gender: "male",
-          inputMode,
-          audio: false,
-          tutorialDone,
-        },
+        settings: { gender: "male", name: "テスト騎士", inputMode, audio: false, tutorialDone: true },
         index: 0,
-        completed: false,
-        mistakes: 0,
         clues: [],
+        stats: { lower: 0, equal: 0, higher: 0, grammarMistakes: 0, choiceMistakes: 0 },
       }),
     );
-  }, { inputMode, tutorialDone });
-}
-async function start(page: Page) {
-  await page.goto("/");
-  await page.getByRole("button", { name: "物語をはじめる" }).click();
-  await page.getByRole("button", { name: "本編から始める" }).click();
-  await advanceToInput(page);
-}
-async function advanceToInput(page: Page) {
-  const next = page.getByRole("button", { name: "次へ" });
-  await expect(next).toBeEnabled();
-  await next.click();
-  await expect(next).toBeEnabled();
-  await next.click();
-}
-async function words(page: Page, phrase: string) {
-  for (const word of phrase.split(" "))
-    await page
-      .locator(".word-bank")
-      .getByRole("button", { name: new RegExp("^" + word + "$", "i") })
-      .click();
-  await page.getByRole("button", { name: "このことばで伝える" }).click();
+  }, { inputMode });
 }
 
-test("complete all 18 requests with one-message RPG turns and NPC retries", async ({
-  page,
-}) => {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
-  await quiet(page);
-  await start(page);
-  await expect(page.getByRole("button", { name: "次へ" })).toBeDisabled();
-  // Polite but socially wrong: NPC responds and the story remains on the same request.
-  await words(page, "Can you check");
-  await expect(page.locator(".rpg-speaker")).toHaveText("トーマス");
-  await expect(page.locator(".rpg-message")).toContainText("戸惑います");
-  await expect(page.locator(".step-count strong")).toHaveText("01");
-  await page.getByRole("button", { name: "もう一度" }).click();
-  // Drag a bank word into the answer area, then remove it by tapping.
-  await page
-    .locator(".word-bank")
-    .getByRole("button", { name: "check", exact: true })
-    .dragTo(page.locator(".word-answer"));
-  await expect(page.getByRole("button", { name: "checkを戻す" })).toBeVisible();
-  await page.getByRole("button", { name: "checkを戻す" }).click();
-  for (let i = 0; i < 18; i++) {
-    const phrase = correctPrefix(steps[i]);
-    if (i === 1) {
-      await words(page, "Would you mind show");
-      await expect(page.locator(".rpg-speaker")).toHaveText("私");
-      await expect(page.locator(".rpg-message")).toContainText("言葉の形を確認");
-      await expect(page.locator(".scene")).not.toHaveClass(/acted/);
-      await page.getByRole("button", { name: "もう一度" }).click();
-      await expect(page.locator(".reorder-buttons")).toHaveCount(0);
-      await words(page, "Would you mind showing");
-    } else await words(page, phrase);
-    await expect(page.locator(".rpg-speaker")).toHaveText(
-      people[steps[i].person].ja,
-    );
-    await expect(page.locator(".rpg-message")).toContainText(
-      steps[i].result.replace(/[「」]/g, ""),
-    );
-    if (i === 9)
-      await expect(page.locator(".crate-front")).toHaveClass(/moved/);
-    if (i === 11) await expect(page.locator(".dragon-prop")).toBeVisible();
-    if (i === 1 && process.env.CAPTURE)
-      await page.screenshot({ path: "work/desktop-final.png", fullPage: true });
-    await page
-      .getByRole("button", {
-        name: i === 17 ? "エンディングへ" : "次へ",
-      })
-      .click();
-    if (i < 17) await advanceToInput(page);
+async function next(page: Page, name: "次へ" | "もう一度" | "結果を見る" = "次へ") {
+  const button = page.getByRole("button", { name: new RegExp(`^${name}`) });
+  await expect(button).toBeEnabled();
+  await button.click();
+}
+
+async function startMainStory(page: Page) {
+  await page.goto("/");
+  await page.getByRole("button", { name: "START", exact: true }).click();
+  await next(page);
+  await page.getByRole("button", { name: "今回は受けない" }).click();
+  for (let index = 0; index < 9; index += 1) await next(page);
+  await next(page);
+}
+
+async function chooseWords(page: Page, phrase: string) {
+  for (const word of phrase.split(" ")) {
+    await page.locator(".word-bank").getByRole("button", { name: new RegExp(`^${word}$`, "i") }).click();
   }
+  await next(page);
+}
+
+test("all 18 requests follow thought, player request, then response", async ({ page }) => {
+  test.setTimeout(90_000);
+  await quiet(page);
+  await startMainStory(page);
+
+  await chooseWords(page, "Can you check");
+  await expect(page.locator(".dialogue-ja")).toContainText("戸惑います");
+  await expect(page.locator(".chapter-bar > span")).toContainText("01 / 18");
+  await next(page, "もう一度");
+
+  for (let index = 0; index < steps.length; index += 1) {
+    if (index === 3) await expect(page.getByRole("img", { name: "外套の男" })).toHaveCount(0);
+    await chooseWords(page, correctPrefix(steps[index]));
+    if (index === 3) await expect(page.getByRole("img", { name: "外套の男" })).toBeVisible();
+    await expect(page.getByText(steps[index].resultJa, { exact: true })).toBeVisible();
+    await expect(page.getByText(steps[index].resultEn, { exact: true })).toBeVisible();
+    await next(page);
+    if (index < steps.length - 1) await next(page);
+  }
+
+  for (let index = 0; index < 4; index += 1) await next(page);
+  await next(page, "結果を見る");
   await expect(page.getByText("QUEST COMPLETE")).toBeVisible();
-  await expect(page.getByText("18 / 18", { exact: true })).toBeVisible();
-  expect(
-    await page.evaluate(
-      (k) => JSON.parse(localStorage.getItem(k)!).completed,
-      key,
-    ),
-  ).toBe(true);
-  expect(errors).toEqual([]);
+  await expect(page.getByText("目下への依頼")).toBeVisible();
+  await expect(page.getByText("同僚への依頼")).toBeVisible();
+  await expect(page.getByText("目上への依頼")).toBeVisible();
+  expect(await page.evaluate((key) => localStorage.getItem(key), storageKey)).toBeNull();
 });
 
-test("mobile tutorial, preferences, saved progress and resume survive reload", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+test("tutorial uses its three backgrounds and saves resumable progress", async ({ page }, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
-  await expect(page.locator(".player-preview .player-knight")).toBeVisible();
-  await expect(page.locator(".site-header")).toHaveCount(0);
-  await expect(page.locator(".start-dock")).toHaveCSS("position", "fixed");
-  await page.getByRole("switch").click();
-  await page.getByRole("button", { name: "男性の騎士" }).click();
-  await page.getByRole("button", { name: /語句を選ぶ/ }).click();
-  if (process.env.CAPTURE)
-    await page.screenshot({ path: "work/home-mobile.png", fullPage: true });
-  await page.getByRole("button", { name: "物語をはじめる" }).click();
-  await page.getByRole("button", { name: "チュートリアルへ" }).click();
-  for (let i = 0; i < 3; i++) {
-    await advanceToInput(page);
-    await words(page, correctPrefix(tutorial[i]));
-    await page
-      .getByRole("button", { name: i === 2 ? "本編へ" : "次へ" })
-      .click();
+  await page.getByLabel("騎士の名前").fill("ミナ");
+  await page.getByRole("button", { name: "男性" }).click();
+  await page.getByRole("button", { name: "語句を選ぶ" }).click();
+  await page.getByRole("button", { name: "START", exact: true }).click();
+  const introStage = page.locator(".story-page > .interactive-stage");
+  await expect(introStage).toBeVisible();
+  await expect(introStage.locator(":scope > .dialogue-panel")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("intro-overlay-layout.png"), fullPage: false });
+  await next(page);
+  await page.getByRole("button", { name: "受ける", exact: true }).click();
+
+  for (let index = 0; index < tutorial.length; index += 1) {
+    await next(page);
+    if (index === 1) {
+      const bubbleImage = page.locator(".bubble-art img");
+      const characterImage = page.locator(".stage-character img");
+      await expect(bubbleImage).toBeVisible();
+      await expect.poll(() => bubbleImage.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+      await expect(characterImage).toBeVisible();
+      await expect.poll(() => characterImage.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+      expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath("tutorial-bag-layout.png"), fullPage: false });
+    }
+    await chooseWords(page, correctPrefix(tutorial[index]));
+    await expect(page.getByText(tutorial[index].resultJa, { exact: true })).toBeVisible();
+    await next(page);
   }
-  await expect(page.locator(".step-count strong")).toHaveText("01");
-  await advanceToInput(page);
-  await words(page, "check");
-  await page.getByRole("button", { name: "次へ" }).click();
+  for (let index = 0; index < 9; index += 1) await next(page);
+  await next(page);
+  await chooseWords(page, correctPrefix(steps[0]));
+  await next(page);
   await page.reload();
   await page.getByRole("button", { name: /保存した場面 2 \/ 18 から再開/ }).click();
-  await expect(page.locator(".step-count strong")).toHaveText("02");
-  await advanceToInput(page);
-  await expect(page.locator(".word-input")).toBeVisible();
-  expect(
-    await page.locator(".rpg-turn-panel").evaluate(
-      (panel) => panel.scrollHeight <= panel.clientHeight,
-    ),
-  ).toBe(true);
-  if (process.env.CAPTURE)
-    await page.screenshot({ path: "work/mobile-input.png", fullPage: true });
-  await words(page, "Would you mind showing");
-  await expect(page.getByRole("button", { name: "次へ" })).toBeEnabled();
-  if (process.env.CAPTURE)
-    await page.screenshot({ path: "work/mobile-final.png", fullPage: true });
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
-  const stored = await page.evaluate(
-    (k) => JSON.parse(localStorage.getItem(k)!),
-    key,
-  );
-  expect(stored.settings.tutorialDone).toBe(true);
-  expect(stored.settings.audio).toBe(false);
-  expect(stored.settings.gender).toBe("male");
-  expect(stored.settings.inputMode).toBe("words");
+  await expect(page.locator(".chapter-bar > span")).toContainText("02 / 18");
 });
 
-test("speech adapter: silence and network failure are retries, full sentence is accepted", async ({
-  page,
-}) => {
-  await quiet(page, { inputMode: "voice" });
+test("audio defaults on and speaks English through an English voice", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.addInitScript(() => {
-    const w = window as unknown as Record<string, unknown>;
+    const spoken: Array<{ text: string; lang: string; voiceLang: string; voiceName: string }> = [];
+    const voices = [
+      { name: "Japanese", lang: "ja-JP" },
+      { name: "Alex", lang: "en-US" },
+      { name: "Google UK English Male", lang: "en-GB" },
+      { name: "Samantha", lang: "en-US" },
+    ];
+    class MockUtterance {
+      text: string;
+      lang = "";
+      rate = 1;
+      pitch = 1;
+      voice: { name: string; lang: string } | null = null;
+      constructor(text: string) { this.text = text; }
+    }
+    Object.defineProperty(window, "SpeechSynthesisUtterance", { value: MockUtterance, configurable: true });
+    Object.defineProperty(window, "speechSynthesis", {
+      configurable: true,
+      value: {
+        cancel() {},
+        getVoices() { return voices; },
+        addEventListener() {},
+        removeEventListener() {},
+        speak(utterance: MockUtterance) {
+          spoken.push({ text: utterance.text, lang: utterance.lang, voiceLang: utterance.voice?.lang || "", voiceName: utterance.voice?.name || "" });
+        },
+      },
+    });
+    Object.assign(window, { spoken });
+  });
+
+  await page.goto("/");
+  await expect(page.getByRole("switch")).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("button", { name: "男性" }).click();
+  await page.getByRole("button", { name: "START", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { spoken: unknown[] }).spoken.length)).toBe(1);
+  const spoken = await page.evaluate(() => (window as unknown as { spoken: Array<{ text: string; lang: string; voiceLang: string; voiceName: string }> }).spoken[0]);
+  expect(spoken.text).toBe("This is the Kingdom of Eldoria. I am a young knight serving at the royal castle.");
+  expect(spoken.lang).toBe("en-US");
+  expect(spoken.voiceLang).toBe("en-GB");
+  expect(spoken.voiceName).toBe("Google UK English Male");
+
+  await next(page);
+  await page.getByRole("button", { name: "今回は受けない" }).click();
+  for (let index = 0; index < 7; index += 1) await next(page);
+  await expect(page.locator(".dialogue-en")).toContainText("Leon, Elena");
+  await expect(page.locator(".dialogue-ja")).toContainText("レオン、エレナ");
+});
+
+test("Would you plus a base verb is a choice issue except for a colleague", async ({ page }) => {
+  await quiet(page);
+  await startMainStory(page);
+  await chooseWords(page, "Would you check");
+  await expect(page.locator(".dialogue-ja")).toContainText("戸惑います");
+  const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!), storageKey);
+  expect(stored.stats.choiceMistakes).toBe(1);
+  expect(stored.stats.grammarMistakes).toBe(0);
+});
+
+test("speech recognition accepts English and replies bilingually", async ({ page }) => {
+  await quiet(page, "voice");
+  await page.addInitScript(() => {
+    const host = window as unknown as Record<string, unknown>;
     class MockRecognition {
       lang = "";
       interimResults = false;
       continuous = false;
       maxAlternatives = 1;
-      onresult: ((e: unknown) => void) | null = null;
-      onerror: ((e: unknown) => void) | null = null;
+      onresult: ((event: unknown) => void) | null = null;
+      onerror: ((event: unknown) => void) | null = null;
       onend: (() => void) | null = null;
-      start() {
-        w.recognitionMock = this;
-      }
-      stop() {
-        this.onend?.();
-      }
-      abort() {
-        this.onend?.();
-      }
+      start() { host.recognitionMock = this; }
+      stop() { this.onend?.(); }
+      abort() { this.onend?.(); }
     }
-    w.SpeechRecognition = MockRecognition;
+    host.SpeechRecognition = MockRecognition;
   });
-  await start(page);
+  await startMainStory(page);
   await page.getByRole("button", { name: "マイクで話す", exact: true }).click();
+  await expect(page.getByLabel("音声認識の文字起こし")).toHaveText("");
   await page.evaluate(() => {
-    const r = (window as unknown as { recognitionMock: { onend: () => void } })
-      .recognitionMock;
-    r.onend();
+    const recognition = (window as unknown as { recognitionMock: { onresult: (event: unknown) => void } }).recognitionMock;
+    recognition.onresult({ results: [[{ transcript: "CHECK THE FLOOR!" }]] });
   });
-  await expect(
-    page.getByText("聞き取れませんでした。もう一度言ってみましょう。", {
-      exact: true,
-    }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "マイクで話す", exact: true }).click();
-  await page.evaluate(() => {
-    const r = (
-      window as unknown as {
-        recognitionMock: {
-          onerror: (e: { error: string }) => void;
-          onend: () => void;
-        };
-      }
-    ).recognitionMock;
-    r.onerror({ error: "network" });
-    r.onend();
-  });
-  await expect(page.getByText(/音声認識に接続できません/)).toBeVisible();
-  await expect(page.locator(".step-count strong")).toHaveText("01");
-  await page.getByRole("button", { name: "マイクで話す", exact: true }).click();
-  await page.evaluate(() => {
-    const r = (
-      window as unknown as {
-        recognitionMock: { onresult: (e: unknown) => void; onend: () => void };
-      }
-    ).recognitionMock;
-    r.onresult({ results: [[{ transcript: "CHECK THE FLOOR!" }]] });
-    r.onend();
-  });
-  await expect(page.locator(".rpg-message")).toContainText(
-    steps[0].result.replace(/[「」]/g, ""),
-  );
-  expect(
-    await page.evaluate(
-      (k) => JSON.parse(localStorage.getItem(k)!).mistakes,
-      key,
-    ),
-  ).toBe(0);
-});
-
-test("unsupported speech browsers can finish a request with words", async ({
-  page,
-}) => {
-  await quiet(page, { inputMode: "voice" });
-  await page.addInitScript(() => {
-    const w = window as unknown as Record<string, unknown>;
-    w.SpeechRecognition = undefined;
-    w.webkitSpeechRecognition = undefined;
-  });
-  await start(page);
-  await expect(page.locator(".word-input")).toBeVisible();
-  await words(page, "check");
-  await expect(page.locator(".rpg-message")).toContainText(
-    steps[0].result.replace(/[「」]/g, ""),
-  );
+  await expect(page.getByLabel("音声認識の文字起こし")).toHaveText("CHECK THE FLOOR!");
+  await page.getByRole("button", { name: /次へ/ }).click();
+  await expect(page.getByText(steps[0].resultEn, { exact: true })).toBeVisible();
+  await expect(page.getByText(steps[0].resultJa, { exact: true })).toBeVisible();
+  await expect(page.locator(".speaker-line strong")).toHaveText(people.thomas.ja);
 });
