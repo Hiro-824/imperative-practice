@@ -74,7 +74,7 @@ export function Stage({
       {bubble && <BubbleArt kind={bubble} />}
       {dragon && (
         <div className="crown-dragon" role="img" aria-label="王冠をくわえた赤ちゃんドラゴン">
-          <Image src="/art-new/cutouts/crown-dragon.webp" alt="" fill sizes="(max-width: 760px) 100vw, 900px" unoptimized priority />
+          <Image src="/art-new/cutouts/crown-dragon-display.webp" alt="" fill sizes="(max-width: 760px) 76vw, 650px" unoptimized priority />
         </div>
       )}
       {children}

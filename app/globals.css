@@ -251,10 +251,10 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .crown-dragon {
   position: absolute;
   z-index: 6;
+  top: 12%;
   left: 50%;
-  bottom: 6%;
-  width: min(760px, 65vw);
-  aspect-ratio: 1672 / 941;
+  width: min(650px, 58vw);
+  aspect-ratio: 866 / 444;
   translate: -50% 0;
   pointer-events: none;
   animation: dragon-float 2.8s ease-in-out infinite;
@@ -379,7 +379,7 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   .interactive-stage { border-radius: 14px; }
   .stage-character { left: 0; width: 48%; height: 92%; }
   .bubble-art { top: 15%; right: 4%; width: 145px; }
-  .crown-dragon { left: 50%; bottom: 5%; width: 92vw; translate: -50% 0; }
+  .crown-dragon { top: 14%; left: 50%; width: 76vw; translate: -50% 0; }
   .dialogue-panel { min-height: 205px; padding: 0.75rem; border-radius: 14px; }
   .dialogue-copy { min-height: 86px; }
   .dialogue-en { font-size: 0.94rem; }
